@@ -131,7 +131,7 @@ import ptolemy.vergil.basic.export.web.WebExporter;
  * {@link ptolemy.vergil.basic.export.ExportModel} can be called with these
  * properties set to create Ptolemy website specific web pages.</p>
  *
- * <p> See <a href="http://chess.eecs.berkeley.edu/ptexternal/wiki/Main/HTMLExport#in_browser" target="_top">http://chess.eecs.berkeley.edu/ptexternal/wiki/Main/HTMLExport</a>
+ * <p> See <a href="https://wiki.eecs.berkeley.edu/ptexternal/Main/Main/HTMLExport#in_browser" target="_top">https://wiki.eecs.berkeley.edu/ptexternal/Main/Main/HTMLExport</a>
  * for detailed instructions about how to create web pages on the
  * Ptolemy website for models.</p>
  *
@@ -780,7 +780,7 @@ public class ExportHTMLAction extends AbstractAction
 
             // Define the path to the SSI files on the ptolemy site.
             // ssiRoot always has a trailing slash.
-            final String ssiRoot = "http://ptolemy.org/";
+            final String ssiRoot = "https://ptolemy.org/";
 
             // Reference required script files.
             // If the model contains an instance of CopyJavaScriptFiles, then
@@ -807,9 +807,9 @@ public class ExportHTMLAction extends AbstractAction
 
             // In HTML5, can omit "type" attributes for scripts and stylesheets
             printWriter.println("<link rel=\"stylesheet\"  href=\"" + jsLibrary
-                    + "javascript/" + FILENAMES[2] + "\" media=\"screen\"/>");
+                    + "js/" + FILENAMES[2] + "\" media=\"screen\"/>");
             printWriter.println("<link rel=\"stylesheet\"  href=\"" + jsLibrary
-                    + "javascript/" + FILENAMES[4] + "\" media=\"screen\"/>");
+                    + "js/" + FILENAMES[4] + "\" media=\"screen\"/>");
             if (usePtWebsite) {
                 // FIXME: this absolute path is not very safe.  The
                 // problem is that we don't know where $PTII is located on
@@ -823,19 +823,19 @@ public class ExportHTMLAction extends AbstractAction
 
             // In HTML5, can omit "type" attributes for scripts and stylesheets
             // NOTE: Due to a bug somewhere (browser, Javascript, etc.), can't end this with />. Have to use </script>.
-            printWriter.println("<script src=\"" + jsLibrary + "javascript/"
+            printWriter.println("<script src=\"" + jsLibrary + "js/"
                     + FILENAMES[0] + "\"></script>");
-            printWriter.println("<script src=\"" + jsLibrary + "javascript/"
+            printWriter.println("<script src=\"" + jsLibrary + "js/"
                     + FILENAMES[1] + "\"></script>");
 
             // FILENAMES[2] is a stylesheet <link, so it goes in the head, see above.
 
-            printWriter.println("<script src=\"" + jsLibrary + "javascript/"
+            printWriter.println("<script src=\"" + jsLibrary + "js/"
                     + FILENAMES[3] + "\"></script>");
-            printWriter.println("<script src=\"" + jsLibrary + "javascript/"
+            printWriter.println("<script src=\"" + jsLibrary + "js/"
                     + FILENAMES[5] + "\"></script>");
             // Could alternatively use a CDS (Content Delivery Service) for the JavaScript library for jquery.
-            // index.println("<script type=\"text/javascript\" src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js\"></script>");
+            // index.println("<script type=\"text/js\" src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js\"></script>");
 
             // Next, create the image map.
             String map = _createImageMap(parameters.directoryToExportTo);

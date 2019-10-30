@@ -1,6 +1,7 @@
-/* This actor implements a publisher in a HLA/CERTI federation.
+/* This actor provides information to publish, register and update values in
+ * the Ptolemy-HLA/CERTI framework.
 
-@Copyright (c) 2013-2018 The Regents of the University of California.
+@Copyright (c) 2013-2019 The Regents of the University of California.
 All rights reserved.
 
 Permission is hereby granted, without written agreement and without
@@ -50,17 +51,35 @@ import ptolemy.kernel.util.Workspace;
 //// HlaPublisher
 
 /**
- * <p>This actor implements a publisher in a HLA/CERTI federation. This
- * publisher is associated to one HLA attribute. Ptolemy's tokens, received in
- * the input port of this actor, are interpreted as an updated value of the
- * HLA attribute. The updated value is published to the whole HLA Federation
- * by the {@link HlaManager} attribute, deployed in a Ptolemy model.
+ * This actor provides updates to shared objects in an HLA (High Level Architecture)
+ * federation. The shared objects are are instances of classes defined in a
+ * FED file (Federation Execution Data). Each class has attributes, and this
+ * actor sends updates to an attribute of an instance of a class when it
+ * receives data on its input.  If there are instances of {@link HlaSubscriber}
+ * that refer to the same attribute of the same instance, then those will be
+ * notified of the update. The HlaSubscriber will produce an output event with
+ * the same data and a time stamp that depends on the time management parameters
+ * of the {@link HlaManager}.
+ *
+ * This actor requires that there be an instance of {@link HlaManager} in the
+ * same model. That instance references the FED file that is required to
+ * define the class referred to in this HlaPublisher, and that class is
+ * required to have an attribute with a name matching the name given here.
+ *
+ * The name of the instance is arbitrary. If an instance with the specified
+ * name does not already exist, it will be created during initialization of
+ * the model. If two instances of this HlaPublisher actor refer to the
+ * same instance name, then they will send updates to the same HLA instance,
+ * but they are required to update distinct attributes of that instance.
+ *
+ * During initialization, the HlaManager will notify the RTI (Run Time
+ * Infrastructure) of the intent to update this particular attribute
+ * of this particular instance of the class.
+ *
+ * This actor throws an exception if the attribute name or the class name or
+ * the instance name is empty. An exception is also thrown if the class name
+ * or the attribute name is not defined in the FED file.
  * </p><p>
- * The name of this actor is mapped to the name of the HLA attribute in the
- * federation and need to match the Federate Object Model (FOM) specified for
- * the Federation. The data type of the input port has to be the same type of
- * the HLA attribute. The parameter <i>classObjectHandle</i> needs to match the
- * attribute object class describes in the FOM.
  *
  *  @author Gilles Lasnier, Contributors: Patricia Derler, David Come
  *  @version $Id: HlaPublisher.java 214 2018-04-01 13:32:02Z j.cardoso $
@@ -69,7 +88,7 @@ import ptolemy.kernel.util.Workspace;
  *  @Pt.ProposedRating Yellow (glasnier)
  *  @Pt.AcceptedRating Red (glasnier)
  */
-public class HlaPublisher extends TypedAtomicActor {
+public class HlaPublisher extends TypedAtomicActor implements HlaUpdatable {
 
     /** Construct the HlaPublisher actor.
      *  @param container The container.
@@ -83,32 +102,32 @@ public class HlaPublisher extends TypedAtomicActor {
             throws NameDuplicationException, IllegalActionException {
         super(container, name);
 
-        // The single output port of the actor.
+        // The single input port of the actor.
         input = new TypedIOPort(this, "input", true, false);
         input.setMultiport(false);
 
-        // HLA attribute name.
+        // HLA attribute name as defined in the FOM.
         attributeName = new Parameter(this, "attributeName");
         attributeName.setDisplayName("Name of the attribute to publish");
         attributeName.setTypeEquals(BaseType.STRING);
         attributeName.setExpression("\"HLAattributName\"");
         attributeChanged(attributeName);
 
-        // HLA object class in FOM.
+        // HLA object class as defined in the FOM.
         classObjectName = new Parameter(this, "classObjectName");
         classObjectName.setDisplayName("Object class in FOM");
         classObjectName.setTypeEquals(BaseType.STRING);
         classObjectName.setExpression("\"HLAobjectClass\"");
         attributeChanged(classObjectName);
 
-        // HLA class instance name.
+        // HLA class instance name given by the user.
         classInstanceName = new Parameter(this, "classInstanceName");
         classInstanceName.setDisplayName("Name of the HLA class instance");
         classInstanceName.setTypeEquals(BaseType.STRING);
         classInstanceName.setExpression("\"HLAclassInstanceName\"");
         attributeChanged(classInstanceName);
 
-        // CERTI message buffer encapsulation.
+        // CERTI message buffer encapsulation
         useCertiMessageBuffer = new Parameter(this, "useCertiMessageBuffer");
         useCertiMessageBuffer.setTypeEquals(BaseType.BOOLEAN);
         useCertiMessageBuffer.setExpression("false");
@@ -142,7 +161,7 @@ public class HlaPublisher extends TypedAtomicActor {
     ////                         public methods                    ////
 
     /** Call the attributeChanged method of the parent. Check if the
-     *  user as set all information relative to HLA to publish.
+     *  user has set all information related to HLA to publish.
      *  @param attribute The attribute that changed.
      *  @exception IllegalActionException If one of the parameters is
      *  empty.
@@ -195,8 +214,9 @@ public class HlaPublisher extends TypedAtomicActor {
 
     /** Retrieve and check if there is one and only one {@link HlaManager}
      *  deployed in the Ptolemy model. The {@link HlaManager} provides the
-     *  method to publish an updated value of a HLA attribute to the HLA/CERTI
-     *  Federation.
+     *  method to publish the attributes of a class, register an instance of a
+     *  class and update the value of a HLA attribute of a class instance to
+     *  the HLA/CERTI Federation.
      *  @exception IllegalActionException If there is zero or more than one
      *  {@link HlaManager} per Ptolemy model.
      */
@@ -205,6 +225,8 @@ public class HlaPublisher extends TypedAtomicActor {
         super.initialize();
         // Find the HlaManager by looking into container
         // (recursively if needed).
+        // FIXMEjc: it really looks recursively? The HlaManager must be in a DE
+        // top level model.
         CompositeActor ca = (CompositeActor) this.getContainer();
 
         List<HlaManager> hlaManagers = ca.attributeList(HlaManager.class);
@@ -221,7 +243,7 @@ public class HlaPublisher extends TypedAtomicActor {
         _hlaManager = hlaManagers.get(0);
     }
 
-    /** Each tokens, received in the input port, are transmitted to the
+    /** All tokens, received in the input port, are transmitted to the
      *  {@link HlaManager} for a publication to the HLA/CERTI Federation.
      */
     @Override
@@ -244,11 +266,13 @@ public class HlaPublisher extends TypedAtomicActor {
         }
     }
 
-    /** Return the HLA attribute name handled by the HlaPublisher.
+    /** Return the HLA attribute name indicated in the HlaPublisher actor
+     * that will be used by HLA services (publish and update). The attribute
+     * must be defined in the FED file. It belongs to the class classObjectName.
      *  @return the HLA Attribute name.
      *  @exception IllegalActionException if a bad token string value is provided
      */
-    public String getAttributeName() throws IllegalActionException {
+    public String getHlaAttributeName() throws IllegalActionException {
         String parameter = "";
         try {
             parameter = ((StringToken) attributeName.getToken()).stringValue();
@@ -259,11 +283,13 @@ public class HlaPublisher extends TypedAtomicActor {
         return parameter;
     }
 
-    /** Return the name of the HLA class instance this HlaPublisher belongs to.
+    /** Return the name of the HLA class instance indicated in the HlaPublisher
+     *  actor that will be used by HLA services (register and update). It is
+     *  chosen by the user.
      *  @return the HLA class instance name.
      *  @exception IllegalActionException if a bad token string value is provided.
      */
-    public String getClassInstanceName() throws IllegalActionException {
+    public String getHlaInstanceName() throws IllegalActionException {
         String parameter = "";
         try {
             parameter = ((StringToken) classInstanceName.getToken())
@@ -275,12 +301,13 @@ public class HlaPublisher extends TypedAtomicActor {
         return parameter;
     }
 
-    /** Return the HLA class object name (in FOM) of the HLA attribute handled
-     *  by the HlaPublisher.
+    /** Return the HLA class object name indicated in the HlaPublisher actor.
+     * The class must be defined in the FED file and has the attribute
+     * attributeName.
      *  @return the HLA object class name.
      *  @exception IllegalActionException if a bad token string value is provided.
      */
-    public String getClassObjectName() throws IllegalActionException {
+    public String getHlaClassName() throws IllegalActionException {
         String parameter = "";
         try {
             parameter = ((StringToken) classObjectName.getToken())
@@ -290,6 +317,11 @@ public class HlaPublisher extends TypedAtomicActor {
                     "Bad classObjectName token string value");
         }
         return parameter;
+    }
+
+    /** FIXME: This should probably not be here. See HlaManager. */
+    public TypedIOPort getInputPort() {
+        return input;
     }
 
     /** Indicate if the HLA publisher actor uses the CERTI message

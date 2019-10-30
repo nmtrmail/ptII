@@ -3,7 +3,7 @@ dnl	generate the file "configure", which is run to configure the
 dnl	Makefile in this directory.
 
 # Version: $Id$
-# Copyright (c) 1997-2018 The Regents of the University of California.
+# Copyright (c) 1997-2019 The Regents of the University of California.
 # All rights reserved. 
 #
 # Permission is hereby granted, without written agreement and without
@@ -704,6 +704,8 @@ fi
 # See https://bugs.openjdk.java.net/browse/JDK-8190556
 # If you get messages about "javac: invalid target release:", then check that JAVA_HOME
 # is set to same JDK as the one that is in your path.
+AC_MSG_CHECKING([for Java version for use with -target and by Ant in build.xml])
+
 changequote(<<, >>)dnl
 JVERSION_TARGET=`echo "$JVERSION" |
     awk -F . '{ if ($1 > 8) {
@@ -713,6 +715,8 @@ JVERSION_TARGET=`echo "$JVERSION" |
                 }
               }'`
 changequote([, ])dnl
+
+PT_MSG_RESULT([$JVERSION_TARGET])
 
 cd "$startdir"
 
@@ -768,9 +772,8 @@ if test "$UPGRADE_JVM" = "yes"; then
     JDK 1.5 or later is required so that these packages can use generics:
 	- actor/gui/run, which uses org/mlc/swing
 	- actor/lib/vhdl
-	- backtrack
 	- ptalon
-    JDK 1.6 or later is needed for ptdb to use javax.swing.GroupLayout.
+    JDK 1.6 or later is needed to use javax.swing.GroupLayout.
     JDK 1.8 is needed for Nashorn, nio and many other features.
     Please upgrade your JDK to 1.8 or later and try again.
     $upgradeMessage]) 	
@@ -1048,8 +1051,6 @@ ANT_ALWAYS_EXCLUDE='<exclude name="**/CVS/"/>
 <exclude name="ptolemy/apps/webstart/"/>
 <exclude name="ptolemy/apps/xsl/"/>
 <exclude name="ptolemy/apps/zaurus/"/>
-<exclude name="ptolemy/backtrack/eclipse/plugin/"/>
-<exclude name="ptolemy/backtrack/test/"/>
 <exclude name="ptolemy/codegen/c/actor/lib/oldJavaFiles/"/>
 <exclude name="ptolemy/codegen/dsp/lib/"/>
 <exclude name="ptolemy/codegen/kernel/newInterfaces/"/>
@@ -1264,18 +1265,15 @@ changequote([, ])dnl
 status=$?
 if test "$status" = "1" ; then
     PT_MSG_RESULT([Java version is $JVERSION, so Java 9 or later is not present])
+    MODULE_SYSTEM=no
 else
     PT_MSG_RESULT([Java version is $JVERSION, Java 9 or later present, so certain internal sun.* packages are not accessible])
-    # We use to need to add a module so that
-    # javax.xml.bind.DatatypeConverter can be found.
-    # However, we no longer need that class.
-
-    # ANT_JAVAC_COMPILERARG='     <compilerarg line="--add-modules java.xml.bind"/>';
-    # JAVAC_MODULES="--add-modules java.xml.bind"
+    MODULE_SYSTEM=yes
     PTVIEWER_DIR=
     PTVIEWER_PACKAGES=
     updateExcludes "ptolemy/copernicus/applet/"
     updateExcludes "ptolemy/media/viewer/"
+    updateExcludeTests "**/ptolemy/media/**/test/junit/JUnitTclTest.*"
 fi
 
 
@@ -1893,7 +1891,6 @@ else
     You will not be able to run the ptolemy.actor.corba actors,
     which is probably not a problem.])
        updateExcludes "ptolemy/actor/corba/"
-       updateExcludes "ptolemy/domains/openmodelica/"
     fi
     cd "$startdir"
 
@@ -2404,107 +2401,6 @@ if test -z "$PTBACKTRACK_ECLIPSE_DIR"; then
 fi 
 
 #--------------------------------------------------------------------
-#       db and dbxml is the Oracle Berkeley XML DB
-#	http://www.oracle.com/technology/software/products/berkeley-db/xml/index.html
-#	dbxml is used by the ptdb directory.
-#       db and dbxml are basically GPL'd, see $PTII/ptdb/lib/db-dbxml-license.htm
-#--------------------------------------------------------------------
-
-# PTDB_DIR is set to database and used in
-# $PTII/ptdb/makefile if dbxml is found
-PTDB_DIR=
-
-
-PTDBXML_JAR='${PTII}/vendors/oracle/dbxml.jar'
-PTDB_JAR='${PTII}/vendors/oracle/db.jar'
-
-# Jar files necessary for compilation
-PTDBXML_JARS="${PTDBXML_JAR}${CLASSPATHSEPARATOR}${PTDB_JAR}"
-
-# We only need to look for dbxml if $PTDB_USER_DIR
-PTDB_USER_DIR="$PTII/ptdb"
-if test ! -d "$PTDB_USER_DIR"; then
-    PT_MSG_STATUS([$PTDB_USER_DIR is not present,
-    so we need not find the dbxml interface.])
-else
-    AC_MSG_CHECKING([for dbxml.jar ])
-    AC_ARG_WITH(dbxml, [  --with-dbxml=JAR       use dbxml.jar from JAR,
-                          defaults to \$PTII/vendors/oracle/dbxml.jar],
-	PTDBXML_JAR=$withval,
-	PTDBXML_JAR=$PTII/vendors/oracle/dbxml.jar)
-
-    if test  -f "$PTDBXML_JAR"; then
-	PT_MSG_RESULT([$PTDBXML_JAR])
-
-        AC_MSG_CHECKING([for db.jar ])
-        AC_ARG_WITH(db, [  --with-db=JAR       use db.jar from JAR,
-                          defaults to \$PTII/vendors/oracle/db.jar],
-	PTDB_JAR=$withval,
-	PTDB_JAR=$PTII/vendors/oracle/db.jar)
-
-        if test  -f "$PTDB_JAR"; then
-	    PT_MSG_RESULT([$PTDB_JAR])
-	    # Set to ptdb and used in
-	    # $PTII/makefile
-
-	    # Set to database and used in
-	    # $PTII/ptdb/makefile
-	    PTDB_DIR=database
-            # PTDB_PACKAGES is used in ptII/doc/makefile
-	    PTDB_PACKAGES=`$FIND ptdb -name "*.java" | grep -v /test | awk -F / '{printf("%s", $1); for (i = 2; i < NF; i++) printf(".%s", $i); printf("\n")}' | sort | uniq | awk '{printf("%s ", $0)}'`
-         fi
-    fi	
-
-    # Look for shared libraries necessary at runtime.
-    AC_MSG_CHECKING([for dbxml runtime shared libraries])
-    AC_ARG_WITH(dbxmllib, [  --with-dbxmllib=DIR    use libdbxml from DIR,
-                          defaults to \$PTII/vendors/misc/dbxml-2.5.16/install/lib],
-	PTDBXML_LIB=$withval,
-	PTDBXML_LIB=$PTII/vendors/misc/dbxml-2.5.16/install/lib)
-    if test  -d "$PTDBXML_LIB"; then
-	PT_MSG_RESULT([$PTDBXML_LIB])
-	libdbxml=`$FIND "$PTDBXML_LIB" -name "*dbxml-*"`
-	if test ! -f "$libdbxml"; then
-	    AC_MSG_WARN([Failed to find dbxml-X.Y shared library in $PTDBXML_LIB])
-        fi
-    else
-        AC_MSG_WARN([Failed to find dbxml-X.Y shared library in $PTDBXML_LIB.
-    This means that the Ptolemy/Android HandSimDroid prototype will not run.])       
-    fi
-
-    if test "$PTDB_DIR" = ""; then
-        AC_MSG_WARN([Failed to find the Oracle Berkeley XML DB (dbxml) in
-    $PTDBXML_JAR and
-    $PTDB_JAR
-    Perhaps the Oracle Berkeley XML DB is not installed?
-    You need not download dbxml unless you
-    plan on using the ptdb facility which uses a database to manage actors with Ptolemy II. 
-    The dbxml interface can be downloaded from
-    http://www.oracle.com/technology/software/products/berkeley-db/xml/index.html
-    an untar'd into $PTII/vendors/misc and built.
-    For further instructions, see $PTII/ptdb/doc] )
-    else
-        PTDBXML_JARS="${PTDBXML_JAR}${CLASSPATHSEPARATOR}${PTDB_JAR}"
-    fi
-
-    if test ! "$HAS_GENERICS" = "yes"; then 
-        #ptdb.gui.GraphPatternSearchEditor import ptalon.gt.PtalonMatcher
-        AC_MSG_WARN([You are running Java $JVERSION, which does not
-    support generics.  Thus, ptdb, which depends on ptolemy/actor/ptalon will not compile.])
-        PTDBXML_JAR=""
-	PTDB_JAR=""
-    fi
-fi
-
-if test -z "$PTDB_DIR"; then
-   updateExcludes "ptdb/kernel/database/"
-else
-   updateClasspath "$PTDBXML_JAR"
-   updateClasspath "$PTDB_JAR"
-fi 
-
-
-#--------------------------------------------------------------------
 #       Garbage Collector (GC)
 #       The C code generator can use the Boehm Garbage Collector
 #       See http://www.hpl.hp.com/personal/Hans_Boehm/gc/
@@ -2941,7 +2837,7 @@ else
     else
         AC_MSG_WARN(JAI not found in the default classpath)
         AC_MSG_CHECKING(for JAI in $PTII/vendors)
-        TMP_JAI_DIR=`find $PTII/vendors -type d -name "jai*"  | head -1`
+        TMP_JAI_DIR="`find $PTII/vendors -type d -name "jai*" | sort -nr | grep -v imageio | head -1`"
         if test -f "$TMP_JAI_DIR/lib/jai_core.jar"; then
             PT_MSG_RESULT(Found jai* directory $TMP_JAI_DIR)
             AC_MSG_CHECKING(for JAI using jars in $TMP_JAI_DIR/lib)
@@ -2960,18 +2856,26 @@ else
         # PTJAI_PACKAGES is used in ptII/doc/makefile
         PTJAI_PACKAGES=ptolemy.actor.lib.jai
 
+
         AC_MSG_CHECKING([for the JAI jar files, possibly again])
-	if "$JAVAC" FindClass.java ; then
-	    # Usually jai-core.jar will be in the CLASSPATH
-	    JAI_JAR=`"$JAVA" -classpath "$PTII/config${CLASSPATHSEPARATOR}${JAI_DIR}/lib/*" FindClass javax.media.jai.RenderedOp`
-	    if test -f "$JAI_JAR" ; then
-	       JAI_JARS_DIR=`dirname "$JAI_JAR"`
-	       JAI_JARS="${JAI_JARS_DIR}/jai_core.jar${CLASSPATHSEPARATOR}${JAI_JARS_DIR}/jai_codec.jar"
-	       PT_MSG_RESULT($JAI_JARS)
-               updateClasspath "$JAI_JARS_DIR/jai_core.jar"
-               updateClasspath "$JAI_JARS_DIR/jai_codec.jar"
-	    else 
-       	       AC_MSG_WARN([Either we could not find 
+        if "$JAVAC" FindClass.java ; then
+            # Usually jai-core.jar will be in the CLASSPATH
+            JAI_JAR=`"$JAVA" -classpath "$PTII/config${CLASSPATHSEPARATOR}${JAI_DIR}/lib/*" FindClass javax.media.jai.RenderedOp`
+            if test -f "$JAI_JAR" ; then
+                JAI_JARS_DIR=`dirname "$JAI_JAR"`
+                jars=`ls $JAI_JARS_DIR/*.jar`
+                for jar in $jars
+                do
+                    JAI_JARS="$jar${CLASSPATHSEPARATOR}${JAI_JARS}"
+                    updateClasspath "$jar"
+                done
+                if test -z "$JAI_JARS"; then
+                    AC_MSG_WARN([Found $JAI_JARS_DIR, but no jars were found in lib/?])
+                else
+                    PT_MSG_RESULT($JAI_JARS)
+                fi
+            else 
+                AC_MSG_WARN([Either we could not find 
     javax.media.jai.RenderOp or else it was already in the JRE.
     Searching for jai-core.jar returned:
       $JAI_JAR
@@ -2980,27 +2884,38 @@ else
     This is only a problem if you are using Eclipse.
     If the class was in the JRE, then Eclipse should compile the JAI files
     without problems])
-	       JAI_JAR=
+                JAI_JAR=
             fi
-	else
-	    AC_MSG_WARN(['"$JAVAC" -classpath "$PTII/config${CLASSPATHSEPARATOR}${JAI_DIR}/lib" FindClass javax.media.jai.RenderedOp` 
+
+        else
+            AC_MSG_WARN(['"$JAVAC" -classpath "$PTII/config${CLASSPATHSEPARATOR}${JAI_DIR}/lib" FindClass javax.media.jai.RenderedOp` 
     failed.            
     This means that Eclipse might not be able to find the JAI files.
     This is only a problem if you are using Eclipse])
         fi
+
     else
-       AC_MSG_WARN(['"$JAVAC" JAITest.java' failed.
+       AC_MSG_WARN(['"$JAVAC" JAITest.java' failed and JAI jars were not found
+    in $PTII/vendors
     perhaps the Java Advanced Imaging API is not installed?
+
+    Note that JAI does not work in Java 9 and later because Java 9 removed
+    internal classes used by JAI.
+    See https://wiki.eecs.berkeley.edu/ptexternal/Main/JAI
+
     You need not download Jai unless you plan on using the video
     actors in $JAI_USER_DIR
     The JAI API can be downloaded from 
     http://www.oracle.com/technetwork/java/javasebusiness/downloads/java-archive-downloads-java-client-419417.html])
     fi
+
     cd "$startdir"
 fi
 
 if test -z "$PTJAI_DIR"; then
    updateExcludes "ptolemy/actor/lib/jai/"
+   updateExcludeTests "**/ptolemy/actor/lib/jai/*"
+   updateExcludeTests "**/ptolemy/actor/lib/jai/test/junit/JUnitTclTest.*"
 fi
 
 #--------------------------------------------------------------------
@@ -3042,111 +2957,6 @@ else
            updateExcludes "org/hlacerti/"
         fi
     fi
-fi
-
-#--------------------------------------------------------------------
-#       "Jetty is a pure Java-based HTTP server and Java Servlet container." 
-#	See http://www.eclipse.org/jetty/
-#       Jetty is used by Ptango and Ptserver 
-#--------------------------------------------------------------------
-
-# Jetty jar files used by Ptango and ptserver.
-PTJETTY_JAR=
-
-# javax.servlet-api*.jar used by Ptango and ptserver.
-PTSERVLET_JAR=
-
-# smack.jar and smackx.jar used by Ptango, implements xmpp
-PTSMACK_JAR=
-PTSMACKX_JAR=
-
-# We only need to look for Jetty if $PTANGO_USER_DIR is present
-# We only need to look for Jetty if $PTSERVER_USER_DIR is present
-PTANGO_USER_DIR="$PTII/org/ptolemy/ptango/"
-PTSERVER_USER_DIR="$PTII/ptserver/"
-PTHOMER_USER_DIR="$PTII/ptolemy/homer/"
-if test ! -d "$PTANGO_USER_DIR" -a ! -d "$PTSERVER_USER_DIR" -a ! -d "$PTHOMER_DIR"; then
-    PT_MSG_STATUS([$PTANGO_USER_DIR, $PTSERVER_USER_DIR
-    and $PTHOMER_DIR are not present,
-    so we need not find Jetty, javax.servlet, smack or smackx])
-else
-    AC_MSG_CHECKING([for Jetty, used by ptango and ptserver ])
-    AC_ARG_WITH(jetty, [  --with-jetty=JAR       use jetty.jar from JAR,
-                          defaults to \$PTII/lib/jetty-all-8.1.5-v20120716.jar],
-        PTJETTY_JAR=$withval,
-	PTJETTY_JAR=$PTII/lib/jetty-all-8.1.5-v20120716.jar)
-    if test  -f "$PTJETTY_JAR"; then
-	PT_MSG_RESULT([$PTJETTY_JAR])
-	
-        AC_MSG_CHECKING([for Servlet, used by ptango and ptserver])
-	AC_ARG_WITH(servlet, [  --with-servlet=JAR       use servlet.jar from JAR,
-                          defaults to \$PTII/lib/javax.servlet-api-3.0.1.jar],
-	    PTSERVLET_JAR=$withval,
-	    PTSERVLET_JAR=$PTII/lib/javax.servlet-api-3.0.1.jar)
-
-        if test  -f "$PTSERVLET_JAR"; then
-	    PT_MSG_RESULT([$PTSERVLET_JAR])
-        fi
-    fi
-
-    AC_MSG_CHECKING([for Smack, used by ptango])
-    AC_ARG_WITH(smack, [  --with-smack=JAR       use smack.jar from JAR,
-                          defaults to \$PTII/lib/smack.jar],
-        PTSMACK_JAR=$withval,
-	PTSMACK_JAR=$PTII/lib/smack.jar)
-    if test  -f "$PTSMACK_JAR"; then
-	PT_MSG_RESULT([$PTSMACKJAR])
-       updateClasspath "$PTSMACK_JAR"
-    else
-        AC_MSG_WARN([Failed to find the Smack jar files necessary to compile ptango.
-    Ptango is the Ptolemy Internet of Things project.
-    For further instructions, see http://chess.eecs.berkeley.edu/ptango.])
-    fi
-
-    AC_MSG_CHECKING([for Smackx, used by ptango])
-    AC_ARG_WITH(smackx, [  --with-smackx=JAR       use smackx.jar from JAR,
-                          defaults to \$PTII/lib/smackx.jar],
-        PTSMACKX_JAR=$withval,
-	PTSMACKX_JAR=$PTII/lib/smackx.jar)
-
-    if ! test  -f "$PTSMACKX_JAR"; then
-        updateExcludes "$PTANGO_USER_DIR"
-        AC_MSG_WARN([Failed to find the Smackx jar files necessary to compile ptango.
-    Ptango is the Ptolemy Internet of Things project.
-    For further instructions, see http://chess.eecs.berkeley.edu/ptango.])
-
-    else
-	PT_MSG_RESULT([$PTSMACKXJAR])
-        updateClasspath "$PTSMACKX_JAR"
-    fi
-
-    if ! test -f "$PTJETTY_JAR"; then
-        updateExcludes "$PTANGO_USER_DIR"
-        updateExcludes "$PTSERVER_USER_DIR"
-        updateExcludes "$PTHOMER_USER_DIR"
-        AC_MSG_WARN([Failed to find the Jetty jar files necessary to compile ptango,
-    ptserver and homer.
-    Ptango is the Ptolemy Internet of Things project.
-    For further instructions, see http://chess.eecs.berkeley.edu/ptango.])
-
-    else 
-        updateClasspath "$PTJETTY_JAR"
-    fi
-
-    if ! test -f "$PTSERVLET_JAR"; then
-        updateExcludes "$PTANGO_USER_DIR"
-        updateExcludes "$PTSERVER_USER_DIR"
-        updateExcludes "$PTHOMER_USER_DIR"
-        AC_MSG_WARN([Failed to find the Servlet jar files necessary to compile ptango,
-    ptserver and homer.
-    Ptango is the Ptolemy Internet of Things project.
-    For further instructions, see http://chess.eecs.berkeley.edu/ptango.])
-
-    else 
-       updateClasspath "$PTSERVLET_JAR"
-    fi
-
-    # We check that the appropriate jars are available below for Ptango
 fi
 
 #--------------------------------------------------------------------
@@ -3262,25 +3072,85 @@ if test ! -d "$JAVAFX_USER_DIR"; then
     PT_MSG_STATUS([$JAVAFX_USER_DIR is not present,
     so we need not check for JavaFX.])
 else
-    AC_MSG_CHECKING([for JavaFX])
-    # We need to run javac in the config directory so that javac from jdk1.1.6
-    # under NT and cygwin works properly
+        
+    # We need to run javac in the config directory so that javac
+    # from jdk1.1.6 under NT and cygwin works properly
     startdir=$PTII
     cd "$srcdir/config"
+    
+    TMP_JAVAFX_DIR="`ls -d $PTII/vendors/javafx/* | head -1`"
+
+    echo "TMP_JAVAFX_DIR=$TMP_JAVAFX_DIR"
+    echo "$PTII/vendors/javafx: `ls -l $PTII/vendors/javafx`"
+
+    if [ test -z "$TMP_JAVAFX_DIR" ]; then
+       TMP_JAVAFX_DIR=$PTII/vendors/javafx
+    fi
+
+    AC_MSG_CHECKING([for JavaFX])
+    AC_ARG_WITH(javafx-jar, [  --with-javafx=PATH         use JavaFX from PATH,
+                          defaults to $TMP_JAVAFX_DIR]
+        JAVAFX_DIR=$withval,
+        JAVAFX_DIR=$TMP_JAVAFX_DIR)
+
+    AC_MSG_CHECKING([checking for JavaFX in the default classpath])
     # Don't use 'env $JAVAC . . .' here, it will not work under Cygwin
     if "$JAVAC" JavaFXTest.java ; then
-        PT_MSG_RESULT(JavaFX found in the default classpath)
-        # PTJAVAFX_DIR is used in ptolemy/actor/lib/jjs/modules
-        PTJAVAFX_DIR=audio
-        # PTJAVAFX_PACKAGES is used in ptII/doc/makefile
-        PTJAVAFX_PACKAGES=ptolemy.actor.lib.jjs.modules
-    else
-       AC_MSG_WARN(['"$JAVAC" JavaFXTest.java' failed.
-    perhaps you are running an OpenJDK JDK instead of an
-    Oracle JDK?
-    This means that the audio accessors will not work under CapeCode.])
+       PT_MSG_RESULT(JavaFX found in the default classpath)
+       # PTJAVAFX_DIR is used in ptolemy/actor/lib/jjs/modules
+       PTJAVAFX_DIR=audio
+       # PTJAVAFX_PACKAGES is used in ptII/doc/makefile
+       PTJAVAFX_PACKAGES=ptolemy.actor.lib.jjs.modules
+    fi
+
+    if test "$MODULE_SYSTEM" = "yes" -a -z "$PTJAVAFX_DIR" -a -d "$TMP_JAVAFX_DIR/lib"; then
+        AC_MSG_WARN([JavaFX not yet found])
+        AC_MSG_CHECKING([checking for JavaFX in a module])
+        # Don't use 'env $JAVAC . . .' here, it will not work under Cygwin
+
+        JAVAFX_ADD_MODULES="javafx.controls,javafx.swing,javafx.media"
+        JAVAFX_MODULE_PATH="$TMP_JAVAFX_DIR/lib"
+
+        if "$JAVAC" --module-path $JAVAFX_MODULE_PATH --add-modules $JAVAFX_ADD_MODULES JavaFXTest.java ; then
+            PT_MSG_RESULT($JAVAFX_MODULE_PATH)
+            # PTJAVAFX_DIR is used in ptolemy/actor/lib/jjs/modules
+            PTJAVAFX_DIR=audio
+            # PTJAVAFX_PACKAGES is used in ptII/doc/makefile
+            PTJAVAFX_PACKAGES=ptolemy.actor.lib.jjs.modules
+
+            if test -z "$PTADD_MODULES"; then
+                PTADD_MODULES="$JAVAFX_ADD_MODULES,$PTADD_MODULES"
+            else
+                PTADD_MODULES="$JAVAFX_ADD_MODULES"
+            fi
+
+            if test -z "$PTMODULE_PATH"; then
+                PTMODULE_PATH="$JAVAFX_MODULE_PATH$CLASSPATHSEPARATOR$PTMODULE_PATH"
+            else
+                PTMODULE_PATH="$JAVAFX_MODULE_PATH"
+            fi
+
+        fi
+    fi
+
+
+    if test -z "$PTJAVAFX_DIR"; then
+        AC_MSG_WARN([Failed to find JavaFX.
+    
+    Perhaps you are running an OpenJDK JDK instead of an Oracle JDK?
+    Or, perhaps you are using an Oracle JDK later than JDK 10 that
+    no longer includes JavaFX.
+    To download JavaFX, see https://openjfx.io/
+
+    The ./configure script searches for $JAVAFX_DIRS
+    so please install OpenFX at one of those locations or use
+    --with-javafx-jar=JARFILE
+
+    If OpenFX is not present, then the audio accessors will not work under CapeCode.
+    ])
        updateExcludes "ptolemy/actor/lib/jjs/modules/audio/"
     fi
+
     cd "$startdir"
 
 fi
@@ -3305,7 +3175,7 @@ if test ! -d "$JMF_USER_DIR"; then
     PT_MSG_STATUS([$JMF_USER_DIR is not present,
     so we need not find the JMF - The Java Media Framework.])
 else
-    AC_MSG_CHECKING([for Java Media Framework (JMF)])
+    AC_MSG_CHECKING([for Java Media Framework (JMF) in the default classpath])
     # We need to run javac in the config directory so that javac
     # from jdk1.1.6 under NT and cygwin works properly
     startdir=$PTII
@@ -3315,6 +3185,8 @@ else
         PT_MSG_RESULT(JMF found in the default classpath.)
         PTJMF_OK=1
     else
+        AC_MSG_WARN([JMF not found in the default classpath, will check elsewhere next.])
+        AC_MSG_CHECKING([for JMF in $PTII/vendors/JMF*])
         TMP_JMF_DIR=`find $PTII/vendors -type d \( -name "JMF*" -o -name "jmf*" \) -print  | head -1`
         if test -f "$TMP_JMF_DIR/lib/jmf.jar"; then
             if "$JAVAC" -classpath "$TMP_JMF_DIR/lib/jmf.jar" JMFTest.java ; then
@@ -3911,6 +3783,24 @@ else
         fi
     fi
 
+    case "`uname -s`" in
+        Darwin) npmArch=darwin;;
+        CYGWIN*) npmArch=win;;
+        Linux) npmArch=linux;;
+        *) npmArch=FIXME-Insert-Your-Architecture-Here;;
+    esac
+
+    NODE7_INSTRUCTIONS="To install Node 7.x:
+
+    mkdir \$PTII/vendors/node
+    cd \$PTII/vendors/node
+
+    wget https://nodejs.org/download/release/v7.10.1/node-v7.10.1-$npmArch-x64.tar.gz
+    tar -zxf node-v7.10.1-$npmArch-x64.tar.gz
+
+    cd \$PTII
+    export PATH=$PTII/bin:\${PATH}"
+    
     if test "${PTNODE:-none}" = "none"; then
            AC_MSG_WARN([Failed to find the node executable, which means that the Node.js Accessor Host
     To install Node.js, see https://nodejs.org/en/download/
@@ -3924,7 +3814,12 @@ else
     
     Without Node, it is still possible to run the CapeCode Accessor Host,
     but generating Swarmlets and running them using Node
-    will only work if the node executable is the path.])
+    will only work if the node executable is the path.
+
+    $NODE7_INSTRUCTIONS])
+
+    FINAL_WARNING="$FINAL_WARNING
+node was not found, which means that accessors probably won't work.  See above."
 
     else
        if test -f "$PTNODE" ; then
@@ -4018,13 +3913,7 @@ However, node and npm are used to build the JavaScript docs, so you
 may want to install Node 7.x if you want to view the CapeCode
 JavaScript documentation.  Building the documentation is optional.
 
-To install Node 7.x:
-    cd \$PTII/vendors
-    mkdir node
-    wget https://nodejs.org/download/release/v7.10.1/node-v7.10.1-$npmArch-x64.tar.gz
-    tar -zxf node-v7.10.1-$npmArch-x64.tar.gz
-    cd \$PTII
-    export PATH=$PTII/bin:\${PATH}"
+$NODE7_INSTRUCTIONS"
    
 
           fi
@@ -4141,6 +4030,18 @@ else
                 PT_MSG_RESULT(OpenCVTest failed to compile using $TMP_OPENCV_JAR.)
             fi
          done
+         if ! test -f "$OPENCV_JAR"; then
+	     if ! test -z "$OPENCV_JARS"; then
+	         AC_MSG_WARN([Checked $OPENCV_JARS,
+    but the OpenCV test program failed to compile or run.
+
+    Under Linux, try:
+
+    export LD_LIBRARY_PATH=\${PTII}/vendors/opencv/lib:\${PTII}/vendors/opencv/share/OpenCV/java:\${LD_LIBRARY_PATH}
+    ./configure
+    ])
+             fi
+         fi
      fi
 
     if ! test -f "$OPENCV_JAR"; then
@@ -4470,7 +4371,7 @@ Be sure that your CLASSPATH includes JavaCC.zip, which is located in]);
     You need not download JavaCC unless you plan on modifying .jjt files
     in ptolemy/data/expr.
     JavaCC is available from	
-    http://javacc.dev.java.net/
+    https://javacc.org
 
     Note that the zip file that gets downloaded is actually an installer
     that must be run to install the JavaCC.zip file that contains the classes.
@@ -4483,7 +4384,7 @@ Be sure that your CLASSPATH includes JavaCC.zip, which is located in]);
 
     Try:
     cd $PTII/vendors/sun
-    wget https://java.net/projects/javacc/downloads/download/javacc-5.0.tar.gz
+    wget https://javacc.org/downloads/javacc-5.0.tar.gz
     tar -zxf javacc-5.0.tar.gz
     cd $PTII
     ./configure
@@ -4540,7 +4441,8 @@ else
        # bin/Vergil.app/Contents/Info.plist refers to vendors/j3d/lib
        # and not /usr/share/java/j3d*.
 
-       directory=`ls -d $PTII/vendors/j3d/lib`
+       systemName="`uname -s`"
+       directory=`ls -d $PTII/vendors/j3d/lib/$systemName`
 
        if test -d "$directory"; then
        	  JAVA3D_DIR="$directory"
@@ -4608,24 +4510,24 @@ else
     if "$JAVAC" -classpath "$Java3DClasspath" java3dTest.java ; then
         PT_MSG_RESULT($Java3DClasspath)
 
-	if test "`uname -s`" = "Darwin"; then 
+	if test "`uname -s`" = "Darwin"; then
  	    AC_MSG_CHECKING([for Jogl])
             AC_ARG_WITH(jogl, [  --with-jogl=DIR       use jogl-all.jar and gluegen.jar from DIR,
 			  Java3D under Mac OS with JDK 1.7 and later requires Jogl.
 			  Usually Jogl is installed in $PTII/vendors/jogl],
 	        JOGL_DIR=$withval,
-	        JOGL_DIR=)
+	        JOGL_DIR=$PTII/vendors/jogl)
 
-	    if test -z "$JOGL_DIR" ; then
+	    if test -d "$JOGL_DIR" ; then
                 directory=`ls -d $PTII/vendors/jogl/lib`
                 if test -d "$directory"; then
        	            JOGL_JAR_DIR="$directory"
 		    PTJOGL_DIR=`dirname $JOGL_JAR_DIR`
                 fi
-		if test -f "$JOGL_JAR_DIR/jogamp-fat.jar" ; then
-		     PT_MSG_RESULT($JOGL_JAR_DIR)
-		    JAVA3D_JARS="$JAVA3D_JARS${CLASSPATH}$JOGL_JAR_DIR/jogamp-fat.jar"
-		    updateClasspath "$JOGL_JAR_DIR/jogamp-fat.jar"
+		if test -f "$JOGL_JAR_DIR/Darwin/jogamp-fat.jar" ; then
+		     PT_MSG_RESULT($JOGL_JAR_DIR/Darwin/jogamp-fat.jar)
+		    JAVA3D_JARS="$JAVA3D_JARS${CLASSPATHSEPARATOR}$JOGL_JAR_DIR/Darwin/jogamp-fat.jar"
+		    updateClasspath "$JOGL_JAR_DIR/Darwin/jogamp-fat.jar"
 		else
 		    AC_MSG_WARN([Could not find the Jogl directory.
    This could be problem at runtime for Mac OS X with Java 3D.
@@ -4649,6 +4551,56 @@ else
            fi
        fi
        
+	if test "`uname -s`" = "Linux"; then
+ 	    AC_MSG_CHECKING([for Jogl])
+            AC_ARG_WITH(jogl, [  --with-jogl=DIR       use Jogl from DIR
+			  Java3D under Linux with JDK 9 or 10 and later requires Jogl.],
+	        JOGL_DIR=$withval,
+	        JOGL_DIR=$PTII/vendors/jogl)
+
+	    if test -d "$JOGL_DIR" ; then
+                JOGL_JAR_DIR="$JOGL_DIR"
+    	        #PTJOGL_DIR is used in ptinvoke.in to set the Mac DYLD_LIBRARY_PATH
+		#PTJOGL_DIR=`dirname $JOGL_JAR_DIR`
+
+		jars=`ls -d $JOGL_DIR/lib/Linux/*.jar`
+		for jar in $jars
+		do
+		     if test -f "$jar" ; then
+		         PT_MSG_RESULT($jar)
+		         JAVA3D_JARS="$JAVA3D_JARS${CLASSPATHSEPARATOR}$jar"
+		         updateClasspath "$jar"
+                     fi
+		done
+
+		jars=`ls -d $JOGL_DIR/lib/natives/linux-amd64/*.jar`
+		for jar in $jars
+		do
+		     if test -f "$jar" ; then
+		         PT_MSG_RESULT($jar)
+		         JAVA3D_JARS="$JAVA3D_JARS${CLASSPATHSEPARATOR}$jar"
+		         updateClasspath "$jar"
+                     fi
+		done
+             fi
+
+	     if test -z "$JOGL_JAR_DIR"; then
+	         AC_MSG_WARN([Could not find the Jogl directory.
+   This could be a problem under Linux and JDK 9 or 10 and later
+
+   To install, 
+       mkdir -p $PTII/vendors/jogl/lib/natives/linux-amd64
+       cd $PTII/vendors/jogl/lib/natives/linux-amd64
+       wget https://jogamp.org/deployment/v2.3.2/jar/jogl-all-natives-linux-amd64.jar
+       wget https://jogamp.org/deployment/v2.3.2/jar/gluegen-rt-natives-linux-amd64.jar
+
+       cd $PTII
+       ./configure
+
+       ])
+
+             fi
+       fi
 
        PTJAVA3D_DIR=gr
        PTGRDOMAIN_JAR=gr/gr.jar
@@ -5476,41 +5428,6 @@ if test -d "$MESCAL_USER_DIR"; then
    updateExcludes "mescal/xml2hmdes/"
 fi
 
-#--------------------------------------------------------------------
-#       OpenModelica is an implementation of Modelica.
-#       At compile time, it is used in $PTII/ptolemy/actor/lib/fmi/fmus/omc
-#       At runtime, it is used in $PTII/ptolemy/domains/openmodelica        
-#	See https://openmodelica.org
-#--------------------------------------------------------------------
-
-# We only enable OpenModelical if either of these two directories are present
-PTOMC_USER_DIR="$PTII/ptolemy/actor/lib/fmi/fmus/omc"
-PTOPENMODELICA_USER_DIR="$PTII/ptolemy/domains/openmodelica"
-
-
-if test ! -d "$PTOMC_USER_DIR" -a ! -d "$PTOPENMODELICA_USER_DIR"; then
-    PT_MSG_STATUS([$PTOMC_USER_DIR and $PTOPENMODELICA_USER_DIR are not present])
-else
-    AC_PATH_PROG(PTOMC, omc)
-    if test "${PTOMC:-none}" = "none"; then
-        AC_MSG_WARN([Failed to find omc, the OpenModelicaCompiler.
-    Rebuilding the OpenModelica fmus will not be possible.
-    Running the OpenModelica models will not be possible.
-    This is only a concern if you are interested in OpenModelica])
-        updateExcludes "ptolemy/actor/lib/fmi/fmus/omc"
-        updateExcludes "ptolemy/domains/openmodelica"
-    else
-        if test -d "$PTOMC_USER_DIR";  then
-                PTOMC_DIR=omc
-        fi
-        if test -d "$PTOPENMODELICA_USER_DIR";  then
-                PTOPENMODELICA_DIR=openmodelica
-                PTOPENMODELICA_PACKAGES="ptolemy.domains.openmodelica.kernel ptolemy.domains.openmodelica.lib ptolemy.domains.openmodelica.lib.omc ptolemy.domains.openmodelica.lib.omc.corba"
-		PTOPENMODELICADOMAIN_JAR=openmodelica/openmodelica.jar
-        fi
-    fi
-fi
-
 
 #--------------------------------------------------------------------
 #       ProtoBuf - "Protocol Buffers are a way of encoding structured data in an efficient yet extensible format."
@@ -5557,6 +5474,7 @@ fi
 #--------------------------------------------------------------------
 
 # We only enable Ptango if $PTPAHO_USER_DIR is present
+# Ptango has been removed, but it is not clear that this depends on Ptango.
 PTPAHO_USER_DIR="$PTII/ptolemy/actor/lib/jjs/modules/localStorage"
 
 # PTPAHO_MQTT_DIRS is set to localStorage and mqtt if Paho MQTT is found and used in ptII/ptolemy/actor/lib/jjs/modules/
@@ -5599,121 +5517,6 @@ else
 fi 
 
 #--------------------------------------------------------------------
-#       Ptango is the Ptolemy Internet of Things project
-#	See http://chess.eecs.berkeley.edu/ptango
-#--------------------------------------------------------------------
-
-# PTANGO_DIR is set to ptango if ptango is found.
-PTANGO_DIR=
-
-# PTXMPP_DIR is set to xmpp if smack.jar and smackx.jar are found.  See org/ptolemy/ptango/makefile
-PTXMPP_DIR=
-
-# We only enable Ptango if $PTANGO_USER_DIR is present
-PTANGO_USER_DIR="org/ptolemy/ptango"
-if test ! -d "$PTANGO_USER_DIR"; then
-    PT_MSG_STATUS([$PTANGO_USER_DIR is not present])
-else
-    # We checked for Jetty above.	
-    if test  -f "$PTJETTY_JAR"; then
-	# We checked for Servlet above.
-        if test  -f "$PTSERVLET_JAR" -a -f "$PTSMACK_JAR" -a -f "$PTSMACKX_JAR"; then
-	    PTANGO_DIR=ptango
-	    PTXMPP_DIR=xmpp
-            # PTANGO_PACKAGES is used in ptII/doc/makefile
-	    PTANGO_PACKAGES=`find $PTANGO_USER_DIR -name "*.java" | grep -v /test | awk -F / '{printf("%s", $1); for (i = 2; i < NF; i++) printf(".%s", $i); printf("\n")}' | sort | uniq | awk '{printf("%s ", $0)}'`
-        fi
-    fi
-
-    if test "$PTANGO_DIR" = ""; then
-        AC_MSG_WARN([Failed to find the Jetty, Servlet, Smack or SmackX jar files necessary to compile ptango.
-    Ptango is the Ptolemy Internet of Things project.
-    For further instructions, see http://chess.eecs.berkeley.edu/ptango.])
-    else
-        PTANGO_JARS="${CLASSPATHSEPARATOR}${PTJETTY_JAR}${CLASSPATHSEPARATOR}${PTSERVLET_JAR}${CLASSPATHSEPARATOR}${PTSMACK_JAR}${CLASSPATHSEPARATOR}${PTSMACKX_JAR}"
-    fi
-fi
-
-if test -z "$PTANGO_JARS"; then
-   updateExcludes "org/ptolemy/ptango/"
-fi 
-
-
-#--------------------------------------------------------------------
-#       ptserver is the Ptolemy server interface to the Android client
-#	http://chess.eecs.berkeley.edu
-#	
-#--------------------------------------------------------------------
-
-# PTSERVER_DIR is set to ptserver and used in
-# $PTII/makefile if ptserver is found
-PTSERVER_DIR=
-
-# Jar files used by ptserver.
-PTHESSIAN_JAR=
-PTWMQTT_JAR=
-
-# Jar files necessary for compilation of ptserver.
-PTSERVER_JARS=
-
-# We only need to look for Hessian if $PTSERVER_USER_DIR is present
-PTSERVER_USER_DIR="$PTII/ptserver"
-PTSERVER_USER_DIR2="$PTII/ptolemy/homer"
-if test ! -d "$PTSERVER_USER_DIR" -o ! -d "$PTSERVER_USER_DIR2" -o -z "$PTHOMER_DIR"; then
-    PT_MSG_STATUS([$PTSERVER_USER_DIR or
-    $PTSERVER_USER_DIR2 are not present or
-    Homer was not found
-    so we need not find the Hessian, Jetty, Servlet and WMQTT interfaces for ptserver.])
-else
-    # We checked for Jetty above.	
-    if test  -f "$PTJETTY_JAR"; then
-	# We checked for Servlet above.
-        if test  -f "$PTSERVLET_JAR"; then
-	    AC_MSG_CHECKING([for Hessian, used by ptserver ])
-	    AC_ARG_WITH(hessian, [  --with-hessian=JAR       use Hessian.jar from JAR,
-                          defaults to \$PTII/ptserver/lib/hessian-4.0.7.jar],
-  	    PTHESSIAN_JAR=$withval,
-	    PTHESSIAN_JAR=$PTII/ptserver/lib/hessian-4.0.7.jar)
-            if test  -f "$PTHESSIAN_JAR"; then
-   	        PT_MSG_RESULT([$PTHESSIAN_JAR])
-
-		AC_MSG_CHECKING([for WMQTT, used by ptserver ])
-		AC_ARG_WITH(wmqtt, [  --with-wmqtt=JAR       use wmqtt.jar from JAR,
-                          defaults to \$PTII/ptserver/lib/wmqtt.jar],
-	  	PTWMQTT_JAR=$withval,
-		PTWMQTT_JAR=$PTII/ptserver/lib/wmqtt.jar)
-
-		if test  -f "$PTWMQTT_JAR"; then
-	     	    PT_MSG_RESULT([$PTWMQTT_JAR])
-
-	            # Set to ptserver and used in
-	            # $PTII/makefile
-	            PTSERVER_DIR=ptserver
-                    # PTSERVER_PACKAGES is used in ptII/doc/makefile
-	            PTSERVER_PACKAGES=`find ptserver -name "*.java" | grep -v /test | awk -F / '{printf("%s", $1); for (i = 2; i < NF; i++) printf(".%s", $i); printf("\n")}' | sort | uniq | awk '{printf("%s ", $0)}'`
-                fi
-             fi
-         fi
-    fi
-
-    if test "$PTSERVER_DIR" = ""; then
-        AC_MSG_WARN([Failed to find the jar files necessary to compile ptserver.
-    The ptserver interface is used to support Ptolemy running on the Android.
-    For further instructions, see $PTII/ptserver/package.html] )
-    else
-        PTSERVER_JARS="${CLASSPATHSEPARATOR}${PTHESSIAN_JAR}${CLASSPATHSEPARATOR}${PTJETTY_JAR}${CLASSPATHSEPARATOR}${PTSERVLET_JAR}${CLASSPATHSEPARATOR}${PTWMQTT_JAR}"
-    fi
-fi
-
-if test -z "$PTSERVER_JARS"; then
-   updateExcludes "ptserver/"
-   updateExcludes "ptolemy/homer/"
-else
-   updateClasspath "$PTHESSIAN_JAR"
-   updateClasspath "$PTWMQTT_JAR"
-fi 
-
-#--------------------------------------------------------------------
 #       PSDF is the Parameterized Synchronous Data Flow domain
 #--------------------------------------------------------------------
 
@@ -5753,91 +5556,6 @@ if test -z "$PTPSDF_DIR"; then
 else
    updateClasspath "$PSDF_DIR/mapss.jar"
 fi 
-
-#--------------------------------------------------------------------
-#       PowerMock is used for testing and is CPL'd.
-#       PowerMock includes JUnit and EasyMock. 
-#--------------------------------------------------------------------
-
-# PTPOWERMOCK_DIR is set to test and used in
-# $PTII/ptdb/makefile
-PTPOWERMOCK_DIR= 
-
-# PowerMock, used for testing, see http://code.google.com/p/powermock/
-# Used in ptolemy/ptdb/test/makefile
-PTPOWERMOCK_JARS=
-
-# We only need to look for PowerMock if the ptdb/test directory is present
-POWERMOCK_USER_DIR="$PTII/ptdb/test"
-if test ! -d "$POWERMOCK_USER_DIR"; then
-    PT_MSG_STATUS([$POWERMOCK_USER_DIR is not present,
-    so we need not find PowerMock])
-else
-    AC_MSG_CHECKING([for PowerMock test harness])
-    AC_ARG_WITH(ptpowermock, [  --with-powermock=DIR       use PowerMock test harness from DIR,
-                          defaults to \$PTII/vendors/misc/powermock-easymock-junit-1.3.8],
-	POWERMOCK_DIR=$withval,
-	POWERMOCK_DIR=$PTII/vendors/misc/powermock-easymock-junit-1.3.8)
-
-    if test -d "$POWERMOCK_DIR"; then
-	PT_MSG_RESULT([$POWERMOCK_DIR])
-	AC_MSG_CHECKING([for PowerMock jars])
-        jars="cglib-nodep- easymock- easymockclassextension- javassist- junit- objenesis- powermock-easymock-"
-	powermockjarpath=
-	for jar in $jars
-	do
-	    if test "${PTVERBOSE:-none}" = "none"; then
-	        $PT_ECHO $ECHO_N "."
-	    else
-                $PT_ECHO $ECHO_N "$jar "
-            fi
-	    # Do not use a leading * before ${jar}.  If we do, then we don't find the easymock jar file.
-	    jarpath=`$FIND "$POWERMOCK_DIR" -name "${jar}*.jar" | head -1`
-   	    if test -f "$jarpath"; then
-                # Keep track of the jars so we can use them while building
-	        # with make.
-  	        powermockjarpath="$powermockjarpath$CLASSPATHSEPARATOR$jarpath"
-
-                updateClasspath "$jarpath"
-            else   
-	        AC_MSG_WARN([Failed to find $jar in $POWERMOCK_DIR: $jarpath])
-	        powermockjarpath=
-	        break
-	   fi
-	done	
-	if test ! -z eclipsejarpath; then
-	   PT_MSG_RESULT( ok)
-	   PTPOWERMOCK_JARS=$powermockjarpath
-	   PTPOWERMOCK_DIR=test
-        fi
-	
-    fi	
-
-    if test "$PTPOWERMOCK_DIR" = ""; then
-        AC_MSG_WARN([Failed to find PowerMock.
-    Perhaps PowerMock was not installed?
-    You need not download these packages if you would like
-    to run the tests.  To install PowerMock, go to
-    http://code.google.com/p/powermock/ and download
-    http://powermock.googlecode.com/files/powermock-easymock-junit-1.3.8.zip
-    (which contains PowerMock for EasyMock and JUnit) and unzip it in
-    $PTII/vendors/misc so that 
-    $PTII/vendors/misc/powermock-easymock-junit-1.3.8 is created,
-    then rerun configure.
-    Other versions of PowerMock _may_ work, but are untested.])
-    fi
-fi
-
-if test -z "$PTPOWERMOCK_DIR"; then
-    if test -d ptdb; then
-        ptdbTestDirectories=`$FIND ptdb -name test`
-        for ptdbTestDirectory in $ptdbTestDirectories
-        do 
-            updateExcludes "$ptdbTestDirectory/"
-        done   
-    fi
-fi 
-
 
 #--------------------------------------------------------------------
 #       Ptalon 
@@ -5900,7 +5618,7 @@ PTRTOOL_DIR=
 # Used in mk/jnlp.jar 
 PTRTOOL_JNLP_JARS=
 
-# We only enable RPtango if $PTRTOOL_USER_DIR is present
+# We only enable R if $PTRTOOL_USER_DIR is present
 PTRTOOL_USER_DIR="ptolemy/actor/lib/r"
 if test ! -d "$PTRTOOL_USER_DIR"; then
     PT_MSG_STATUS([$PTRTOOL_USER_DIR is not present])
@@ -6123,12 +5841,9 @@ else
        PT_MSG_RESULT([$MYSQL_JAR])
     fi    
     OJDBC_TARGET_JAR=ojdbc6.jar
-    if test "$JAVA1_6_OR_LATER" != "yes"; then
-        OJDBC_TARGET_JAR=ojdbc5.jar
-    fi
-    AC_MSG_CHECKING([for ojdbc.jar])
-    AC_ARG_WITH(ojdbc, [  --with-ojdbc=/path/to/ojdbcN.jar  path to ojdbc.jar
-                          defaults to \$PTII/ptolemy/actor/lib/database/ojdbc6.jar or ojdbc5.jar $OJDBC_TARGET_JAR],
+    AC_MSG_CHECKING([for $OJDBC_TARGET_JAR])
+    AC_ARG_WITH(ojdbc, [  --with-ojdbc=/path/to/ojdbcN.jar  path to $OJDBC_TARGET_JAR
+                          defaults to \$PTII/ptolemy/actor/lib/database/$OJDBC_TARGET_JAR],
 	    ORACLE_OJDBC_JAR=$withval,
 	    ORACLE_OJDBC_JAR=$PTII/ptolemy/actor/lib/database/$OJDBC_TARGET_JAR)
 
@@ -6139,7 +5854,7 @@ else
     but only necessary to use database actors with Oracle.
     If the mysql jar file is present, then the Oracle Java Database Connector is not necessary
     To install ojdbc5.jar or ojdbc6.jar,
-    download it from http://www.oracle.com/technetwork/apps-tech/jdbc-111060-084321.html
+    download it from https://www.oracle.com/technetwork/database/features/jdbc/jdbc-drivers-12c-download-1958347.html
     copy it to ptolemy/actor/lib/database
     and rerun ./configure])
     
@@ -7124,9 +6839,6 @@ fi
 
 # Keep these substitutions alphabetical, with a description
 
-# Ant directive for JavaC 9 to add --add-modules.
-AC_SUBST(ANT_JAVAC_COMPILERARG) 
-
 # Path to the ant binary, stored in lib/ptII.properteries, used while importing accessors in org/terraswarm/accessor/JSAccessor.java
 AC_SUBST(ANT_PATH)
 
@@ -7196,7 +6908,7 @@ AC_SUBST(CMKIT_DIR)
 # http://chess.eecs.berkeley.edu/ptexternal/wiki/Main/Mac#EclipseProblems
 AC_SUBST(ECLIPSE_CLASSPATHENTRY_PDE_REQUIREDPLUGINS)
 
-# Location of Eclipse, which is used by ptolemy/backtracking
+# Location of Eclipse, which is used by ptolemy/backtracking (no longer)
 AC_SUBST(ECLIPSE_DIR)
 
 # Location of GNU Awk, used by maven
@@ -7251,9 +6963,6 @@ AC_SUBST(JAVAC)
 
 # javacc binary
 AC_SUBST(JAVACC)
-
-# Java 9 --add-modules directive for javax.xml.bind.DatatypeConverter.
-AC_SUBST(JAVAC_MODULES)
 
 # javacc command line arguments, -STATIC=false if javacc is 5.0 or later.
 AC_SUBST(JAVACC_OPTIONS)
@@ -7394,15 +7103,21 @@ AC_SUBST(PSDF_DIR)
 # Set to accessor and used in org/terraswarm/accessors/makefile if Nashorn is found.
 AC_SUBST(PTACCESSOR_DIR)
 
-# Set to ptango if jetty and javax.servlet jar files are found.
-# Used in org/ptolemy/makefile.
-AC_SUBST(PTANGO_DIR)
+# The value of the --add-modules argument, used in JDK 9 and later to find JavaFX
+AC_SUBST(PTADD_MODULES)
 
-# Jar files for Ptango.
-AC_SUBST(PTANGO_JARS)
+# The value of the addmodule argument for Ant and make
+if test ! -z "$PTADD_MODULES"; then
+   PTADD_MODULES_ANT="<jvmarg line=\"--add-modules $PTADD_MODULES\"/>"
+   AC_SUBST(PTADD_MODULES_ANT)
 
-# PTANGO_PACKAGES is used in ptII/doc/makefile
-AC_SUBST(PTANGO_PACKAGES)
+   # Really? Ant javac task has no way to specify --add-modules?
+   PTADD_MODULES_ANT_JAVAC="<compilerarg line=\"--add-modules $PTADD_MODULES\"/>"
+   AC_SUBST(PTADD_MODULES_ANT_JAVAC)
+
+   PTADD_MODULES_COMMAND_LINE="--add-modules $PTADD_MODULES"
+   AC_SUBST(PTADD_MODULES_COMMAND_LINE)
+fi
 
 # Set to backtrack if Java 1.5 or later is present
 AC_SUBST(PTBACKTRACK_DIR)
@@ -7503,19 +7218,6 @@ AC_SUBST(PTDATABASE_JNLP_JARS)
 # PTDATABASE_PACKAGES is set if ojdbc6.jar was found and 
 # used in ptII/doc/makefile
 AC_SUBST(PTDATABASE_PACKAGES)
-
-# PTDB_DIR is set to ptdb and used in
-# $PTII/makefile if dbxml is found
-AC_SUBST(PTDB_DIR)
-
-# PTDB_PACKAGES is used in ptII/doc/makefile
-AC_SUBST(PTDB_PACKAGES)
-
-# PTDBXML_JARS includes dbxml.jar and db.xml and is used by $PTII/ptdb
-AC_SUBST(PTDBXML_JARS)
-
-# Directory that contains libdbxml-X.Y.{so,dll,dylib}.  Used in $PTII/ptdb
-AC_SUBST(PTDBXML_LIB)
 
 # Set to distributed and used in
 # $PTII/ptolemy/makefile if jini was found
@@ -7672,6 +7374,9 @@ AC_SUBST(PTJAVA3D_DIR)
 # PTJAVAFX_DIR is used in ptolemy/actor/lib/jjs/modules
 AC_SUBST(PTJAVAFX_DIR)
 
+# PTJAVAFX_JAR is used in ptolemy/actor/lib/jjs/modules
+AC_SUBST(PTJAVAFX_JAR)
+
 # PTJAVAFX_PACKAGES is used in ptII/doc/makefile
 AC_SUBST(PTJAVAFX_PACKAGES)
 
@@ -7688,9 +7393,6 @@ AC_SUBST(PTJAVAMAIL_PACKAGES)
 
 # lib/jcerti.jar, used by ptolemy/apps/hlacerti
 AC_SUBST(PTJCERTI_JAR)
-
-# Jetty jar files used by Ptango and ptserver.
-AC_SUBST(PTJETTY_JAR)
 
 # Set to jjs and used in org/terraswarm/accessors/makefile if Nashorn (present in Java 1.8) is found.
 AC_SUBST(PTJJS_DIR)
@@ -7875,6 +7577,17 @@ AC_SUBST(PTMETROII_DIR)
 # PTMETROII_PACKAGES is used in doc/makefile
 AC_SUBST(PTMETROII_PACKAGES)
 
+# The value of the --module-path argument, used in JDK 9 and later to find JavaFX
+AC_SUBST(PTMODULE_PATH)
+
+# The value of the modulepath argument for Ant
+if test ! -z "$PTMODULE_PATH"; then
+   PTMODULE_PATH_ANT="modulepath=\"$PTMODULE_PATH\""
+   AC_SUBST(PTMODULE_PATH_ANT)
+   PTMODULE_PATH_COMMAND_LINE="--module-path $PTMODULE_PATH"
+   AC_SUBST(PTMODULE_PATH_COMMAND_LINE)
+fi
+
 # Set to opencv and used in 
 # $PTII/ptolemy/actor/lib/makefile if OpenCV Open Computer Vision was found
 AC_SUBST(PTOPENCV_DIR)
@@ -7885,20 +7598,6 @@ AC_SUBST(PTOPENCV_INCLUDE_DIR)
 # Ptolemy II packages that use OpenCV
 # PTOPENCV_PACKAGES is used in ptII/doc/makefile
 AC_SUBST(PTOPENCV_PACKAGES)
-
-# PTOMC_DIR is set to omc if OpenModelica is found and used in ptII/ptolemy/actor/lib/fmi/fmus/makefile
-AC_SUBST(PTOMC_DIR)
-
-# PTOPENMODELICA_DIRS is set to omc if OpenModelica is found and used in ptII/ptolemy/actor/lib/fmi/fmus/makefile
-AC_SUBST(PTOPENMODELICA_DIR)
-
-# PTOPENMODELICADOMAIN_JAR is set to openmodelica/openmodelica.jar if OpenModelica is found and used in ptII/ptolemy/domains/makefile.
-AC_SUBST(PTOPENMODELICADOMAIN_JAR)
-
-#There are no OMC FMU .java files, so there is no PTOMC_PACKAGES.
-
-# PTOPENMODELICA_PACKAGES is used in doc/makefile.  
-AC_SUBST(PTOPENMODELICA_PACKAGES)
 
 # Open Sound Control/Processing.org jar file used by org.ptolemy.js
 AC_SUBST(PTOSCP5_JAR)
@@ -7958,14 +7657,6 @@ AC_SUBST(PTSVGSALAMANDER_JAR)
 # PTSVGSALAMANDER_PACKAGES is used in ptII/doc/makefile
 AC_SUBST(PTSVGSALAMANDER_PACKAGES)
 
-# PTPOWERMOCK_DIR is set to test and used in
-# $PTII/ptdb/makefile
-AC_SUBST(PTPOWERMOCK_DIR)
-
-# PowerMock, used for testing, see http://code.google.com/p/powermock/
-# Used in ptolemy/ptdb/test/makefile
-AC_SUBST(PTPOWERMOCK_JARS)
-
 # Jar files used by the Image Processing library from http://processing.org
 AC_SUBST(PTPROCESSING_JARS)
 
@@ -8009,19 +7700,6 @@ AC_SUBST(PTSCALA_PACKAGES)
 # PTSERIAL_DIR is set to serial and used in
 # $PTII ptolemy/actor/lib/jjs/modules/makefile if the Java Communications API was found
 AC_SUBST(PTSERIAL_DIR)
-
-# PTSERVER_DIR is set to ptserver and used in
-# $PTII/makefile if dbxml is found
-AC_SUBST(PTSERVER_DIR)
-
-# PTSERVER_PACKAGES is used in ptII/doc/makefile
-AC_SUBST(PTSERVER_PACKAGES)
-
-# PTSERVER_JARS includes hessian, jetty, servlet and mqtt jars and is used by $PTII/ptserver
-AC_SUBST(PTSERVER_JARS)
-
-# javax.servlet-api*.jar used by Ptango and ptserver.
-AC_SUBST(PTSERVLET_JAR)
 
 # slf4j-api*.jar, used by webcam-capture and xbjlib (XBee).
 AC_SUBST(PTSLF4J_API_JAR)
@@ -8089,9 +7767,6 @@ AC_SUBST(PTXBJLIB_JARS)
 
 # PTXBJLIB_PACKAGES is used in ptII/doc/makefile
 AC_SUBST(PTXBJLIB_PACKAGES)
-
-# PTXMPP_DIR is set to xmpp if smack.jar and smackx.jar are found.  See org/ptolemy/ptango/makefile
-AC_SUBST(PTXMPP_DIR)
 
 # Location of the local $PTII directory as a file:/// URL
 # This variable is used with the Java Network Launching Protocol files
@@ -8171,5 +7846,5 @@ AC_SUBST(WABA_DIR)
 AC_SUBST(PTWEBSOCKET_DIR)
 
 # Files we substitute in
-AC_OUTPUT(mk/ptII.mk bin/ptinvoke build.xml .classpath bin/comm.policy lib/ptII.properties ptolemy/util/test/junit/javachdir32, chmod a+x bin/ptinvoke ptolemy/util/test/junit/javachdir32)
+AC_OUTPUT(mk/ptII.mk bin/ptinvoke build.xml .classpath bin/comm.policy lib/ptII.properties ptolemy/util/test/junit/javachdir ptolemy/util/test/junit/javachdir32, chmod a+x bin/ptinvoke ptolemy/util/test/junit/javachdir ptolemy/util/test/junit/javachdir32)
 

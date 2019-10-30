@@ -1,6 +1,6 @@
 /* Support for Mac OS X Specific key bindings.
 
- Copyright (c) 2011-2018 The Regents of the University of California.
+ Copyright (c) 2011-2019 The Regents of the University of California.
  All rights reserved.
  Permission is hereby granted, without written agreement and without
  license or royalty fees, to use, copy, modify, and distribute this
@@ -100,7 +100,7 @@ public class MacOSXAdapter implements InvocationHandler {
                 Class[] args = new Class[1];
                 args[0] = Class.forName("java.awt.desktop.AboutHandler");
                 Method setAboutHandler = _desktop.getClass().getMethod("setAboutHandler", args);
-                Object handler = Proxy.newProxyInstance(args[0].getClassLoader(), 
+                Object handler = Proxy.newProxyInstance(args[0].getClassLoader(),
                         args,
                         new InvocationHandler() {
                     @Override
@@ -180,7 +180,10 @@ public class MacOSXAdapter implements InvocationHandler {
         // to use a different technique.
         String version = System.getProperty("java.version");
         int dot = version.indexOf(".");
-        int majorVersion = Integer.parseInt(version.substring(0, dot));
+
+        int majorVersion = (dot == -1) ? Integer.parseInt(version)
+                                       : Integer.parseInt(version.substring(0, dot));
+
         if (majorVersion >= 9) {
             // Desktop class exists in Java 8, so this will compile.
             // But the methods we need to not exist, so we use reflection for those.
@@ -282,7 +285,7 @@ public class MacOSXAdapter implements InvocationHandler {
                     ex2);
         }
     }
-    
+
     /** An instance of java.awt.Desktop, upon which methods are invoked.
      *  This variable is used only if the Java version is 9 or more.
      *  Our usage is designed to compile with Java 8, using reflection
@@ -311,7 +314,7 @@ public class MacOSXAdapter implements InvocationHandler {
 
     /** True if we have printed the NoClassDefFound message for com.apple.eawt.ApplicationListener. */
     private static boolean _printedNoClassDefFoundMessageApplicationListener = false;
-    
+
     /** True if we can't find the setEnabledAboutMenu method and have printed the message. */
     private static boolean _printedNoSuchMethodExceptionMessageAboutMenu = false;
 

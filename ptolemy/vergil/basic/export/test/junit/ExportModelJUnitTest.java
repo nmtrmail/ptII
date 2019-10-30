@@ -1,6 +1,6 @@
 /* JUnit test that exports the demos.
 
-   Copyright (c) 2012-2018 The Regents of the University of California.
+   Copyright (c) 2012-2019 The Regents of the University of California.
    All rights reserved.
    Permission is hereby granted, without written agreement and without
    license or royalty fees, to use, copy, modify, and distribute this
@@ -294,9 +294,14 @@ public class ExportModelJUnitTest {
      */
     private boolean _openModel(String modelPath) {
         // Pathnames that should be skipped
-        String[] skip = { "ptolemy/actor/ptalon/demo/ptinyos/", // PtinyOS is probably not installed.
-                "ptolemy/domains/ptinyos/demo", "ScaleWithEmbeddedCFileActor", // Only works on 32-bit
-                "SimplePassPointer", // Only works on 32-bit
+        String[] skip = {
+            "jai/demo", // Skip jai demos because the don't run in JDK9 and later.
+            "ModularCG.xml", // Prompted for save of unamed on close?
+            "pthales/demo/FFT/FFT.xml", // Skip JAI demo.
+            "ptolemy/actor/ptalon/demo/ptinyos/", // PtinyOS is probably not installed.
+            "ptolemy/domains/ptinyos/demo",
+            "ScaleWithEmbeddedCFileActor", // Only works on 32-bit
+            "SimplePassPointer", // Only works on 32-bit
         };
         for (String element : skip) {
             if (modelPath.indexOf(element) != -1) {
@@ -349,7 +354,6 @@ public class ExportModelJUnitTest {
                 "Billard.xml", // Has links to other models
                 "BillardHit.xml", // Has links to other models
                 "IntegrationTests.xml", // Has links to other models
-                "openmodelica/demo", // OpenModelica is probably not present.
                 "Others.xml", // Has links to other models
                 "TimeAdvancing1Federate.xml", // Has links to other models
                 "TimeAdvancing2FederatesIntervalEvents", // Has links to other models
@@ -373,7 +377,6 @@ public class ExportModelJUnitTest {
                 "f14HLAr74766.xml", // Has links to other models
                 "GeneratorRegulatorProtectorSimXRhapsodyFMU", //SimX only works under 32-bits.
                 "PhysicalPlantCausalityLoop", // Deliberately brings up message on run.  AMS
-                "ptango", // Skip running all ptango demos, they do not provide useful exportable output.
                 //"GravitationWithCollisionDetection.xml", // "Cannot render to more than 32 Canvas3Ds."
                 //"demo/ExecDemo/Demos/BouncingBall.xml", // "Cannot render to more than 32 Canvas3Ds."
                 "EPlus70Actuator.xml", // Hangs in a strange way after running.o
@@ -429,6 +432,7 @@ public class ExportModelJUnitTest {
                 "RijndaelEncryption.xml", // FIXME: Hangs during wrapup.
                 "cg/lib/demo/Scale/Scale.xml", // Contains links to other demos.
                 "ScaleC.xml", // FIXME: the JVM crashes while running.
+                "SemanticYelpSensorUpdateExample.xml", // Needs a Yelp key
                 "SequencedActors.xml", // Has links to other models
                 "SecureCommServerClientJS.xml", // Does not run under Travis.
                 "actor/lib/io/comm/demo", // Requires serial port.
@@ -459,7 +463,7 @@ public class ExportModelJUnitTest {
                 "// ptolemy/actor/lib/jjs/modules/vertxEventBus/demo/VertxBus/VertxBusServer.xml", // Requires that other demos run.
                 "UnitSystemExample.xml", // Has links to other models.
                 "VideoCapture.xml", // Requires a video camera.
-                "WatchEmulator.xml", // Fails periodically.                         
+                "WatchEmulator.xml", // Fails periodically.
                 "WatchCommandUpdater.xml", // Audio device unavailable.
                 "Weather.xml", // Skip because it requires a key
                 "WebSocketChat.xml", // Has links to other models.

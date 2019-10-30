@@ -100,7 +100,8 @@ var _modulePath = [_moduleRoot + '/',
     _moduleRoot + '/node/',
     _moduleRoot + '/node_modules/',
     _accessorRoot + '/hosts/',
-    _accessorRoot + '/'
+    _accessorRoot + '/',
+    _accessorRoot + '/hosts/common/modules/'
 ];
 
 /** An array that gives the search path for modules to be required relative to the classpath. */
@@ -384,6 +385,16 @@ function getAccessorCode(name) {
     }
     return code;
 }
+
+/** Return the name of this host.
+ *
+ *  Return the string "Nashorn".
+ *
+ *  @return In nashornHost.js, return "Nashorn".
+ */ 
+function getHostName() {
+    return "Nashorn";
+};
 
 /** Instantiate and return an accessor. If there is no 'actor' variable in scope,
  *  then this method assumes there is nothing in charge of execution of this accessor

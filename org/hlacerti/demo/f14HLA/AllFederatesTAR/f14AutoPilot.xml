@@ -2,15 +2,15 @@
 <!DOCTYPE entity PUBLIC "-//UC Berkeley//DTD MoML 1//EN"
     "http://ptolemy.eecs.berkeley.edu/xml/dtd/MoML_1.dtd">
 <entity name="f14AutoPilot" class="ptolemy.actor.TypedCompositeActor">
-    <property name="_createdBy" class="ptolemy.kernel.attributes.VersionAttribute" value="11.0.devel">
+    <property name="_createdBy" class="ptolemy.kernel.attributes.VersionAttribute" value="11.1.devel">
     </property>
-    <property name="_windowProperties" class="ptolemy.actor.gui.WindowPropertiesAttribute" value="{bounds={145, 238, 760, 637}, maximized=false}">
+    <property name="_windowProperties" class="ptolemy.actor.gui.WindowPropertiesAttribute" value="{bounds={680, 119, 760, 637}, maximized=false}">
     </property>
     <property name="_vergilSize" class="ptolemy.actor.gui.SizeAttribute" value="[526, 527]">
     </property>
     <property name="_vergilZoomFactor" class="ptolemy.data.expr.ExpertParameter" value="1.200839977091534">
     </property>
-    <property name="_vergilCenter" class="ptolemy.data.expr.ExpertParameter" value="{238.849609375, 162.44762521196705}">
+    <property name="_vergilCenter" class="ptolemy.data.expr.ExpertParameter" value="{238.84960937500003, 162.44762521196705}">
     </property>
     <property name="DE Director" class="ptolemy.domains.de.kernel.DEDirector">
         <property name="stopTime" class="ptolemy.data.expr.Parameter" value="12">
@@ -63,28 +63,23 @@
         </property>
     </property>
     <property name="HlaManager" class="org.hlacerti.lib.HlaManager">
-        <property name="federateName" class="ptolemy.data.expr.Parameter" value="&quot;AutoPilot&quot;">
-            <display name="Federate's name"/>
+        <property name="federateName" class="ptolemy.data.expr.StringParameter" value="AutoPilot">
         </property>
-        <property name="federationName" class="ptolemy.data.expr.Parameter" value="&quot;PRISE_V2&quot;">
-            <display name="Federation's name"/>
+        <property name="federationName" class="ptolemy.data.expr.StringParameter" value="F14tar">
         </property>
         <property name="fedFile" class="ptolemy.data.expr.FileParameter" value="priseV2.fed">
-            <display name="Federate Object Model (.fed) file path"/>
         </property>
         <property name="timeManagementService" class="ptolemy.data.expr.ChoiceParameter" value="Time Advancement Request (TAR)">
-            <display name="Time Management Service"/>
         </property>
         <property name="hlaTimeStep" class="ptolemy.data.expr.Parameter" value="TARtimeStep">
-            <display name="*** If TAR is used, time step (s)"/>
         </property>
         <property name="hlaLookAHead" class="ptolemy.data.expr.Parameter" value="lookahead">
-            <display name="lookahead (s)"/>
         </property>
-        <property name="enableHlaReporter" class="ptolemy.data.expr.Parameter" value="false">
-            <display name="Generate HLA reports ?"/>
+        <property name="synchronizeStartTo" class="ptolemy.data.expr.StringParameter" value="Stick">
         </property>
-        <property name="_location" class="ptolemy.kernel.util.Location" value="[195.0, -10.0]">
+        <property name="launchRTIG" class="ptolemy.data.expr.Parameter" value="true">
+        </property>
+        <property name="_location" class="ptolemy.kernel.util.Location" value="[185.0, -15.0]">
         </property>
     </property>
     <entity name="AutoPilotDE" class="ptolemy.actor.TypedCompositeActor">
@@ -506,7 +501,7 @@
         <entity name="TimedPlotter" class="ptolemy.actor.lib.gui.TimedPlotter">
             <property name="legend" class="ptolemy.kernel.util.StringAttribute" value="Elevator Command">
             </property>
-            <property name="_windowProperties" class="ptolemy.actor.gui.WindowPropertiesAttribute" value="{bounds={344, 662, 578, 332}, maximized=false}">
+            <property name="_windowProperties" class="ptolemy.actor.gui.WindowPropertiesAttribute" value="{bounds={344, 568, 578, 314}, maximized=false}">
             </property>
             <property name="_plotSize" class="ptolemy.actor.gui.SizeAttribute" value="[578, 270]">
             </property>
@@ -527,8 +522,8 @@
 <title>TimedPlotter</title>
 <xLabel></xLabel>
 <yLabel></yLabel>
-<xRange min="-1.0225679590416668" max="12.973704352958334"/>
-<yRange min="-2.0898153568905493" max="1.491173313711965"/>
+<xRange min="0.01" max="12.0"/>
+<yRange min="-1.8331599325296006" max="1.2345178893510163"/>
 </plot>?>
             </configure>
         </entity>

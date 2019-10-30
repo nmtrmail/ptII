@@ -3,7 +3,7 @@
 # @Author: Christopher Brooks
 # @Version: $Id$
 #
-# Copyright (c) 2001-2018 The Regents of the University of California.
+# Copyright (c) 2001-2019 The Regents of the University of California.
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -293,8 +293,6 @@ CAPECODE_ONLY_JNLP_JARS = \
 	ptolemy/demo/CapeCodeDemos.jar \
 	ptolemy/vergil/basic/imprt/accessor/accessor.jar \
 	ptolemy/cg/cgAccessor.jar \
-	org/ptolemy/ptango/ptango.jar \
-	$(PTANGO_JAR_FILES) \
 	$(PTDATABASE_JNLP_JARS) \
 	$(PTGDP_JAR) \
 	$(JNA_JAR) \
@@ -396,8 +394,6 @@ CYPHYSIM_JNLP_JARS =	\
 	$(EXPORT_JARS) \
 	$(DOC_CODEDOC_JAR) \
 	$(PDFRENDERER_JARS) \
-	org/ptolemy/ptango/ptango.jar \
-	$(PTANGO_JAR_FILES) \
 	$(PTFMI_JARS) \
 	$(PTLBNL_JARS) \
 	$(PTMATLAB_JARS) \
@@ -420,13 +416,6 @@ SDF_DEMO_JARS = \
 	ptolemy/data/unit/demo/demo.jar \
 	ptolemy/moml/demo/demo.jar \
 	ptolemy/vergil/kernel/attributes/demo/demo.jar
-
-PTANGO_JAR_FILES = \
-	lib/jetty-all-8.1.5-v20120716.jar \
-	lib/javax.servlet-api-3.0.1.jar \
-	lib/jsoup-1.8.2.jar \
-	lib/smack.jar \
-	lib/smackx.jar
 
 # Actors that use the jsoup html parser.
 JSOUP_JARS = \
@@ -685,7 +674,6 @@ FULL_10_0_JARS = \
 	ptolemy/domains/atc/atc.jar \
 	ptolemy/domains/atc/demo/demo.jar \
 	ptolemy/domains/fmima/fmima.jar \
-	ptolemy/domains/openmodelica/openmodelica.jar \
 	ptolemy/domains/scr/scr.jar \
 	ptolemy/domains/scr/demo/demo.jar \
 	ptolemy/vergil/scr/scr.jar \
@@ -729,11 +717,8 @@ FULL_ONLY_JNLP_JARS = \
 	doc/img/img.jar \
 	doc/papers/papers.jar \
 	$(EXPORT_JARS) \
-	$(PTANGO_JAR_FILES) \
 	lib/jcerti.jar \
 	org/hlacerti/hlacerti.jar \
-	org/ptolemy/ptango/ptango.jar \
-	org/ptolemy/ptango/demo/demo.jar \
 	org/ptolemy/qss/qss.jar \
 	org/ptolemy/qss/demo/demo.jar \
 	$(PTFMI_JARS) \
@@ -761,8 +746,6 @@ FULL_ONLY_JNLP_JARS = \
 	lib/saxon8.jar \
 	lib/saxon8-dom.jar \
 	lib/java_cup.jar \
-	ptolemy/backtrack/backtrack.jar \
-	ptolemy/backtrack/demo/demo.jar \
 	ptolemy/caltrop/caltrop.jar \
 	ptolemy/caltrop/demo/demo.jar \
 	ptolemy/distributed/distributed.jar \
@@ -1012,8 +995,13 @@ KEYALIAS = ptolemy
 # make key_list STOREPASSWORD="-storepass xxx" KEYSTORE=c:/cygwin/users/ptII/adm/certs/ptkeystore
 #
 
-STOREPASSWORD = -storepass this.is.the.storePassword,change.it
-KEYPASSWORD = -keypass this.is.the.keyPassword,change.it
+# In recent versions of the JDK, the store and key passwords must be the same?
+# Otherwise, during key creation, we see:
+# "Warning:  Different store and key passwords not supported for PKCS12 KeyStores. Ignoring user-specified -keypass value."
+# And at runtime, we see:
+# "Caused by: java.security.UnrecoverableKeyException: Get Key failed: Given final block not properly padded. Such issues can arise if a bad key is used during decryption."
+STOREPASSWORD = -storepass this.is.the.storeAndKeyPassword,change.it
+KEYPASSWORD = -keypass this.is.the.storeAndKeyPassword,change.it
 
 # Use a timestamp and avoid:
 #

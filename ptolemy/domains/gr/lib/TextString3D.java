@@ -1,6 +1,6 @@
 /* A GR Shape consisting of a text string.
 
- Copyright (c) 1998-2014 The Regents of the University of California.
+ Copyright (c) 1998-2019 The Regents of the University of California.
  All rights reserved.
  Permission is hereby granted, without written agreement and without
  license or royalty fees, to use, copy, modify, and distribute this
@@ -244,8 +244,28 @@ public class TextString3D extends GRShadedShape {
         Font3D font3D = new Font3D(new Font(fontFamilyValue, Font.PLAIN, 1),
                 extrusion);
 
-        _textGeometry = new Text3D(font3D, textValue);
-        _textGeometry.setCapability(Text3D.ALLOW_STRING_WRITE);
+        try {
+            _textGeometry = new Text3D(font3D, textValue);
+            _textGeometry.setCapability(Text3D.ALLOW_STRING_WRITE);
+        } catch (IllegalArgumentException ex) {
+            // 7/19: Recent version of Java3D is throwing: TriangleArray: illegal vertexCount
+            // Try with a default font.
+            Font3D previousFont3D = font3D;
+
+            try {
+                System.err.println(getFullName() + ": Failed to create the Text3D."
+                                   + "  Trying with the default font.");
+                font3D = new Font3D(new Font(null, Font.PLAIN, 1), extrusion);
+                _textGeometry = new Text3D(font3D, textValue);
+                _textGeometry.setCapability(Text3D.ALLOW_STRING_WRITE);
+            } catch (Throwable ex2) {
+                throw new IllegalActionException(this, ex,
+                                             "Failed to create Text3D for font \""
+                                             + previousFont3D + "\" "
+                                             + previousFont3D.getFont() + " and \""
+                                             + textValue + "\".");
+            }
+        }
 
         String alignmentValue = alignment.stringValue();
         int align = Text3D.ALIGN_CENTER;

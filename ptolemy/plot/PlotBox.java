@@ -1,6 +1,6 @@
 /* A labeled box for signal plots.
 
- @Copyright (c) 1997-2016 The Regents of the University of California.
+ @Copyright (c) 1997-2019 The Regents of the University of California.
  All rights reserved.
 
  Permission is hereby granted, without written agreement and without
@@ -1176,6 +1176,7 @@ public class PlotBox extends JPanel implements Printable, PlotBoxInterface {
             _plotImage = newPlotImage;
 
             Graphics2D offScreenGraphics = newPlotImage.createGraphics();
+            offScreenGraphics.addRenderingHints(_defaultImageRenderingHints());
             super.paintComponent(offScreenGraphics);
             _drawPlot(offScreenGraphics, true);
         }

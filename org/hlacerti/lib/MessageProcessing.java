@@ -1,7 +1,7 @@
 /*
 Below is the copyright agreement for the Ptolemy II system.
 
-Copyright (c) 2015-2018 The Regents of the University of California.
+Copyright (c) 2015-2019 The Regents of the University of California.
 All rights reserved.
 
 Permission is hereby granted, without written agreement and without
@@ -74,7 +74,7 @@ public class MessageProcessing {
      *  @exception IllegalActionException If the token is not handled or the
      *  decoding has failed.
      */
-    static public Object decodeHlaValue(HlaSubscriber hs, Type type,
+    static public Object decodeHlaValue(HlaReflectable hs, Type type,
             byte[] buffer) throws IllegalActionException {
 
         // Case to handle CERTI message buffer.
@@ -150,7 +150,7 @@ public class MessageProcessing {
      *  @exception IllegalActionException If the token is not handled or the
      *  encoding has failed.
      */
-    public static byte[] encodeHlaValue(HlaPublisher hp, Token tok)
+    public static byte[] encodeHlaValue(HlaUpdatable hp, Token tok)
             throws IllegalActionException {
         byte[] encodedValue = null;
         Token t = tok;

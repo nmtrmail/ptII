@@ -4,7 +4,7 @@
 #
 # @Version: $Id$
 #
-# @Copyright (c) 2013-2018 The Regents of the University of California.
+# @Copyright (c) 2013-2019 The Regents of the University of California.
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -55,14 +55,21 @@ PTCLASSALLJAR = $(PTPACKAGE).jar
 JSRCS = \
 	AutomaticSimulation.java \
 	CertiRtig.java \
+	HlaAttributeReflector.java \
+	HlaAttributeUpdater.java \
 	HlaManager.java \
 	HlaPublisher.java \
+	HlaReflectable.java \
+	HlaReporter.java \
 	HlaSubscriber.java \
-        MessageProcessing.java \
+	HlaUpdatable.java \
+	MessageProcessing.java \
 	HlaTimedEvent.java  
 
 OTHER_FILES_TO_BE_JARED = \
 	hlaentities.xml \
+	HlaAttributeReflectorIcon.xml \
+	HlaAttributeUpdaterIcon.xml \
 	HlaManagerIcon.xml \
 	HlaPublisherIcon.xml \
 	HlaSubscriberIcon.xml

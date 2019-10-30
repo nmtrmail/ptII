@@ -1,6 +1,6 @@
 /* Utilities used to manipulate strings.
 
- Copyright (c) 2002-2018 The Regents of the University of California.
+ Copyright (c) 2002-2019 The Regents of the University of California.
  All rights reserved.
  Permission is hereby granted, without written agreement and without
  license or royalty fees, to use, copy, modify, and distribute this
@@ -160,6 +160,8 @@ public class StringUtilities {
      */
     public static void addPtolemyLibraryDirectoryToJavaLibraryPath()
             throws IOException {
+        // The rxtx serial i/o library needs to be able
+        // to find its shared libraries.
         String ptIIProperty = "ptolemy.ptII.dir";
         String ptII = StringUtilities.getProperty(ptIIProperty);
         if (ptII.length() > 0) {
@@ -360,7 +362,8 @@ public class StringUtilities {
         try {
             if (StringUtilities.getProperty("ptolemy.ptII.exitAfterWrapup")
                     .length() > 0) {
-                throw new RuntimeException("Normally, we would "
+                throw new RuntimeException("StringUtilities.exit() was called. "
+                        + "Normally, we would "
                         + "exit here because Manager.exitAfterWrapup() "
                         + "was called.  However, because the "
                         + "ptolemy.ptII.exitAfterWrapup property "

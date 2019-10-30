@@ -5,7 +5,7 @@
 #
 # @Version: : makefile 69602 2014-07-30 14:20:15Z cxh $
 #
-# @Copyright (c) 2015 The Regents of the University of California.
+# @Copyright (c) 2015-2019 The Regents of the University of California.
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -37,7 +37,7 @@ ME =		org/terraswarm/accessor/test/junit
 ROOT =		../../../../..
 
 # JUNIT_JAR is searched for by /Users/cxh/ptII/configure and set in /Users/cxh/ptII/mk/ptII.mk
-CLASSPATH =	$(ROOT)$(CLASSPATHSEPARATOR)$(JUNIT_JARS)$(CLASSPATHSEPARATOR)$(PTJACL_JAR)$(PTOAUTHCLIENT_JAR)$(CLASSPATHSEPARATOR)$(PTOAUTHCOMMON_JAR)$(CLASSPATHSEPARATOR)$(PTSOCKETIO_JAR)$(CLASSPATHSEPARATOR)$(PTVERTX_JARS)$(CLASSPATHSEPARATOR)$(PTANGO_JARS)$(CLASSPATHSEPARATOR)$(SAXON_JAR)
+CLASSPATH =	$(ROOT)$(CLASSPATHSEPARATOR)$(JUNIT_JARS)$(CLASSPATHSEPARATOR)$(PTJACL_JAR)$(PTOAUTHCLIENT_JAR)$(CLASSPATHSEPARATOR)$(PTOAUTHCOMMON_JAR)$(CLASSPATHSEPARATOR)$(PTSOCKETIO_JAR)$(CLASSPATHSEPARATOR)$(PTVERTX_JARS)$(CLASSPATHSEPARATOR)$(CLASSPATHSEPARATOR)$(SAXON_JAR)
 
 # Get configuration info
 CONFIG =	$(ROOT)/mk/ptII.mk

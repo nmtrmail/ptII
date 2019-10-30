@@ -4,7 +4,7 @@
 #
 # $Id$
 #
-# @Copyright (c) 2000-2018 The Regents of the University of California.
+# @Copyright (c) 2000-2019 The Regents of the University of California.
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -41,7 +41,9 @@ if {[string compare test [info procs parseConfiguration]] == 1} then {
     source configurationTools.tcl
 } {}
 
-puts "[java::call ptolemy.actor.Manager timeAndMemory 0]"
+set startTime  [java::call -noconvert java.lang.System currentTimeMillis]
+
+puts "[java::call ptolemy.actor.Manager timeAndMemoryLong $startTime]"
 # Uncomment this to get a full report, or set in your Tcl shell window.
 # set VERBOSE 1
 
@@ -157,6 +159,7 @@ cd ..
 set configs [glob */*configuration*.xml]
 #set configs full/configuration.xml
 #set configs hyvisual/configuration.xml
+
 cd test
 
 foreach i $configs {
@@ -484,7 +487,10 @@ foreach i $configs {
         list $results
     } {{}}
 
-    puts "[java::call ptolemy.actor.Manager timeAndMemory 0]"
+    puts "[java::call ptolemy.actor.Manager timeAndMemoryLong $startTime]"
+
+    set systemTime [clock seconds]
+    puts "The time is [clock format $systemTime -format %H:%M:%S]"
 
     puts "Setting containers of atomic entities to null"
     set entityList [$configuration allAtomicEntityList]
@@ -502,7 +508,7 @@ foreach i $configs {
     set $parser [java::null]
 
     java::call System gc
-    puts "[java::call ptolemy.actor.Manager timeAndMemory 0]"
+    puts "[java::call ptolemy.actor.Manager timeAndMemoryLong $startTime]"
 
     #puts "######## sleeping"
     #java::call Thread sleep 1000000

@@ -1,6 +1,6 @@
 /* An actor that handles an HttpRequest by producing an output and waiting for an input.
 
- Copyright (c) 1997-2014 The Regents of the University of California.
+ Copyright (c) 1997-2019 The Regents of the University of California.
  All rights reserved.
  Permission is hereby granted, without written agreement and without
  license or royalty fees, to use, copy, modify, and distribute this
@@ -69,7 +69,6 @@ import ptolemy.kernel.util.NameDuplicationException;
  *  @since Ptolemy II 10.0
  *  @Pt.ProposedRating Red (ltrnc)
  *  @Pt.AcceptedRating Red (ltrnc)
- *  @see org.ptolemy.ptango.lib.WebServer
  */
 public class SuperdenseTimeTest extends TypedAtomicActor {
 

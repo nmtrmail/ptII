@@ -1,6 +1,6 @@
 /* Support for the websocket accessor.
 
-@Copyright (c) 2015-2018 The Regents of the University of California.
+@Copyright (c) 2015-2019 The Regents of the University of California.
 All rights reserved.
 
 Permission is hereby granted, without written agreement and without
@@ -341,19 +341,26 @@ public class WebSocketHelper extends VertxHelperBase {
         // in the Vert.x thread, so blocking is OK. We need to stall
         // execution of the model to not get ahead of the capability.
 
-        // FIXME: Spotbugs says that there is inconsistent synchronization here because
-        // access to _webSocket is not locked.
+        // Spotbugs says that there is inconsistent synchronization here because
+        // access to _webSocket is not locked.  Maybe fixed with WebSocketHelper.this.
         if (_webSocket.writeQueueFull()) {
             // Blocking _must not_ be done in the verticle.
             // If this is called outside the director thread, then defer to the
             // director thread.
             _issueResponse(() -> {
-                synchronized (this) {
+                synchronized (WebSocketHelper.this) {
                     try {
-                        if (isOpen() && _webSocket.writeQueueFull()) {
+                        while (isOpen() && _webSocket.writeQueueFull()) {
                             _actor.log(
                                     "WARNING: Send buffer is full. Stalling to allow it to drain.");
-                            wait();
+                            // If the socket buffer does not drain,
+                            // this will block the director thread.
+                            wait(1000L);
+                            if (_actor.getDirector().isStopRequested()) {
+                                // There is a request to stop execution of the model.
+                                // Give up on this socket.
+                                break;
+                            }
                         }
                     } catch (InterruptedException e) {
                         _error("Buffer is full, and wait for draining was interrupted.",

@@ -1,6 +1,6 @@
 // JavaScript functions to be shared among accessor hosts.
 //
-// Copyright (c) 2015-2018 The Regents of the University of California.
+// Copyright (c) 2015-2019 The Regents of the University of California.
 // All rights reserved.
 //
 // Permission is hereby granted, without written agreement and without
@@ -161,13 +161,10 @@
  *  Mutable accessors are a particular type of composite accessors. They have the ability
  *  to dynamically change their behavior by substituting a contained accessor X by another
  *  accessor X'. The Mutable accessor can be used as a placeholder where a designer can
- *  plug in a discovered accessor. In this version, reification mechanism is quit open,
- *  assuming that the correctness is checked by third party (such as a Broker accessor...).
- *  Nevertheless, reification condition, in the sense of interface refinement, as pointed 
- *  out in 'Introduction to Embedded Systems' textbook (by Lee & Seshia) can be called as
- *  a commomHost function, that is isReifyableBy(). 
+ *  plug in a discovered accessor. In this version, the reification mechanism is quite open;
+ *  very little checking is done for correctness. 
  *  
- *  When calling 'reify' function on a particular accessor X, the Mutable Accessor
+ *  When calling the 'reify' function on a particular accessor X, the Mutable Accessor
  *  will connect to X, making it equivalent to X itself. This is enabled by the composition
  *  mechanism. And this is done on runtime. If there is a previous reified accessor, it is
  *  unreified.
@@ -344,7 +341,7 @@ function Accessor(accessorName, code, getAccessorCode, bindings, extendedBy, imp
     this.code = code;
 
     this.bindings = bindings;
-
+    
     ///////////////////////////////////////////////////////////////////
     //// Override using specified bindings.
 
@@ -675,7 +672,7 @@ clearTimeout',
             }
             // If mutable, should unreify
             if (this.isMutable) {
-            	this.unreify();
+                this.unreify();
             }
             if (typeof this.exports.wrapup === 'function') {
                 // Call with 'this' being the accessor instance, not the exports
@@ -1275,6 +1272,13 @@ Accessor.prototype.get = function (name) {
     return value;
 };
 
+/** Return the class of the accessor.
+ *  @return The accessor's class.
+ */
+Accessor.prototype.getAccessorClass = function() {
+    return this.accessorClass;
+}
+
 /** Return the default function bindings to use when instantiating accessors.
  *  @param accessorClass The accessor class name, if there is one.
  *  @return An object with a property for each function that the accessor may invoke
@@ -1325,12 +1329,15 @@ Accessor.prototype.getDefaultInsideBindings = function(accessorClass) {
 }
 
 /** Return an object that contains the accessor's monitor object. Prior to this, the 
- *  total utilization is computed up to this point.
+ *  total utilization is computed up to this point.  If the accessor is monitoring
+ *  deeply, then include a property 'containedAccessors' whose value is an array of
+ *  the monitor objects of the contained accessors.
  *
  *  @return the accessor's monitor object.
  */
 Accessor.prototype.getMonitoring = function() {
     if (this.monitoring) {
+        this.monitor.accessorName = this.accessorName;
         // Update utilizations given the currentMonitoringTime
         this.monitor.currentMonitoringTime = Date.now();
 
@@ -1354,9 +1361,25 @@ Accessor.prototype.getMonitoring = function() {
         this.monitor.utilization = this.monitor.initialize.utilization +
             this.monitor.react.utilization + 
             this.monitor.wrapup.utilization;
+        
+        if (this.monitoringDeeply) {
+            this.monitor.containedAccessors = [];
+            if (this.containedAccessors && this.containedAccessors.length > 0) {
+                for (var i = 0; i < this.containedAccessors.length; i++) {
+                    this.monitor.containedAccessors.push(this.containedAccessors[i].getMonitoring());
+                }
+            }
+        }
     }
 
     return this.monitor;
+}
+
+/** Return the name of the accessor.
+ *  @return The accessor's name.
+ */
+Accessor.prototype.getName = function() {
+    return this.accessorName;
 }
 
 /** Default implementation of this.getParameter(), which reads the current value of the
@@ -1370,7 +1393,7 @@ Accessor.prototype.getParameter = function (name) {
         throw new Error('getParameter(name): No parameter named ' + name);
     }
     // If this.setParameter() has been called, return that value.
-    if (parameter.currentValue) {
+    if (typeof parameter.currentValue !== 'undefined' && parameter.currentValue !== null) {
         return parameter.currentValue;
     }
     // If necessary, convert the value to the match the type.
@@ -1471,9 +1494,9 @@ Accessor.prototype.instantiate = function (instanceName, accessorClass, standAlo
     var instance = instantiateAccessor(
         instanceName, accessorClass, this.getAccessorCode, insideBindings);
     if (!standAlone) {
-    	allAccessors.push(instance);
-    	instance.container = this;
-    	this.containedAccessors.push(instance);
+        allAccessors.push(instance);
+        instance.container = this;
+        this.containedAccessors.push(instance);
     }
     return instance;
 };
@@ -1508,12 +1531,19 @@ Accessor.prototype.instantiateFromCode = function (instanceName, code, standAlon
     var instance = new Accessor(
         instanceName, code, getAccessorCode, bindings, null, null);
     if (!standAlone) {
-    	allAccessors.push(instance);
-    	instance.container = this;
-    	this.containedAccessors.push(instance);
+        allAccessors.push(instance);
+        instance.container = this;
+        this.containedAccessors.push(instance);
     }
     return instance;
 };
+
+/** Return true if this accessor has been initialized.
+ *  @return True if this accessor has been initialized.
+ */
+Accessor.prototype.isInitialized = function() {
+    return this.initialized;
+}
 
 /** Return the latest value produced on this output, or null if no
  *  output has been produced.
@@ -1548,10 +1578,10 @@ Accessor.prototype.module = {
  *  @param value The value, which should be 'true' in case this a mutable
  */
 Accessor.prototype.mutable = function (value) {
-	// Here, we have to use this.root because of the prototype chain.
-	var thiz = this.root;
+    // Here, we have to use this.root because of the prototype chain.
+    var thiz = this.root;
     if (value) {
-    	thiz.isMutable = true;
+        thiz.isMutable = true;
         thiz.state = 'unreified';
         
         // Mapping objects to be used for mapping ports.
@@ -1664,14 +1694,9 @@ Accessor.prototype.provideInput = function (name, value) {
  *  Also invoke the fire function of the accessor, if one has been defined.
  *  If a handler throws an exception, then remove it from the registered
  *  handlers before rethrowing the exception.
- *  @param name The name of the input.
+ *  @param name Name of a specific input to handle.
  */
 Accessor.prototype.react = function (name) {
-    // FIXME: The accessor specification says nothing about a name argument to react()
-    // and this does not appear to be used anywhere. Remove it?
-
-    // console.log(this.accessorName + ": ================== react(" + name + ")");
-
     this.emit('reactStart');
 
     var thiz = this.root;
@@ -1786,6 +1811,12 @@ Accessor.prototype.react = function (name) {
         //console.log('commonHost.js react(' + name + '): invoking fire');
         this.exports.fire.call(this);
     }
+    
+    // Reset the currentValue of all the inputs so that they don't accidentally
+    // become persistent.
+    for (var input in thiz.inputs) {
+        thiz.inputs[input].currentValue = null;
+    }
 
     this.emit('reactEnd');
 };
@@ -1799,21 +1830,30 @@ Accessor.prototype.readURL = function () {
     throw new Error('This swarmlet host does not support readURL().');
 };
 
-/** Reifies the accessor given as parameter. The parameter can be an object instance 
- *  of accessor, a string describing a fully qualified accessor class or path, or a 
- *  string with the accessor code.
+/** Reifies the accessor given as an argument. The argument can be an object instance 
+ *  of accessor, a string describing a fully qualified accessor class or path, a 
+ *  string with the accessor code, or an object with the properties "accessor", 
+ *  "parameterMap", and "inputMap".
+ *  
+ *  In the last case, the value of the accessor property should be any
+ *  of the previous accessor formats and parameterMap/inputMap should be an object mapping
+ *  parameters/default input of the accessor to values.
+ *
  *  If instantiating the accessor succeeds, then reification will consist of:
  *  ** removing previous reification, if any,
  *  ** establishing containment,
- *  ** connecting the port of the reifying accessor, and
+ *  ** connecting the port of the reifying accessor,
+ *  ** setting parameters and default inputs of the reifying accessor according
+ *   to the parameterMap and inputMap (if provided) and,
  *  ** initializing the reifying accessor.
  *
- *  @param accessor This parameter can be either an accessor instance, a fully 
- *   qualified accessor class or an accessor code
+ *  @param accessor This argument can be either an accessor instance, a fully 
+ *   qualified accessor class, an accessor code, or an object with "accessor",
+ *   "parameterMap", and "inputMap" properties.
  *  @return true if the reification was achieved successfully, false otherwise.
  */
 Accessor.prototype.reify = function (accessor) {
-	// Here, we have to use this.root because of the prototype chain.
+    // Here, we have to use this.root because of the prototype chain.
     var thiz = this.root;
      
     // Check that this is a mutable accessor
@@ -1822,12 +1862,7 @@ Accessor.prototype.reify = function (accessor) {
         return false;
     }
 
-    var accessorInstance;
-    var isNewAccessor = true;
-    var instanceName = this.accessorName + '.' + "tempAccessorName";
-    instanceName = uniqueName(instanceName, this);
-
-    // Check the accessor parameter type
+    // If no accessor is provided, then unreify, wrapup and return
     if (!accessor) {
         // No accessor specified.
         // Remove previous reification, if any.
@@ -1838,32 +1873,56 @@ Accessor.prototype.reify = function (accessor) {
         thiz.ssuper.initialize();
         
         return false;
-    } else if (accessor.accessorName) {
+    }
+
+    var accessorInstance;
+    var isNewAccessor = true;
+    var instanceName = this.accessorName + '.' + "tempAccessorName";
+    instanceName = uniqueName(instanceName, this);
+
+    // If given an object input, extract the accessor argument and parameterMap
+    var accessorArg;
+    var parameterMap = null;
+    var inputMap = null;
+
+    // Note in javascript (typeof null === 'object') and this is a different case
+    if(typeof accessor === 'object' && accessor !== null &&
+            accessor.accessor && accessor.parameterMap && accessor.inputMap){
+        accessorArg = accessor.accessor;
+        parameterMap = accessor.parameterMap;
+        inputMap = accessor.inputMap;
+    } else {
+        accessorArg = accessor;
+    }
+
+    // Check the accessorArg argument type.
+    if (accessorArg.accessorName) {
         // An accessor object is provided.
-        accessorInstance = accessor;
+        accessorInstance = accessorArg;
         isNewAccessor = false;
-    } else if (typeof accessor === 'string') {
+    } else if (typeof accessorArg === 'string') {
         // Attempt to instantiate the accessor
         try {
-            // Check to see if the parameter is a class name.  
-            var accessorClass = accessor;
+            // Check to see if the argument is a class name.  
+            var accessorClass = accessorArg;
             accessorInstance = thiz.instantiate(instanceName, accessorClass, true);
         } catch(e) {
             try {
-            	// Check to see if the parameter is accessor code.
-                var accessorCode = accessor;
+                // Check to see if the argument is accessor code.
+                var accessorCode = accessorArg;
                 accessorInstance = thiz.instantiateFromCode(instanceName, accessorCode, true);
             } catch(ee) {
-                thiz.error('Reify parameter is not a valid accessor object, accessor class, or accessor code: ' + ee);
+                thiz.error('Reify argument is not a valid accessor object, accessor class, or accessor code: ' + ee);
                 return false;
             };
         };
     } else {
-        thiz.error("Argument is not an accessor: " + accessor);
+        thiz.error("Argument is not an accessor: " + util.inspect(accessorArg));
+        return false;
     }
 
     // Remove previous reification, if any
-	thiz.unreify();
+    thiz.unreify();
     
     // Add the accessor to the list of all accessors if it is a new one
     // FIXME: Do we really need this?
@@ -1888,16 +1947,16 @@ Accessor.prototype.reify = function (accessor) {
 
         // Check the input name
         if (myInputInList) {
-        	if (accInput.type && myInput.type) {
-        		if (accInput.type === myInput.type) {
-        			// FIXME: type checking should be augmented by sub-typing checking
-        			thiz.inputsMap[myInputInList] = accInputInList;
-        		} else {
-        			// If the types do not match, then no mapping
-        		};
-        	} else {	
-        		thiz.inputsMap[myInputInList] = accInputInList;
-        	};
+            if (accInput.type && myInput.type) {
+                if (accInput.type === myInput.type) {
+                    // FIXME: type checking should be augmented by sub-typing checking
+                    thiz.inputsMap[myInputInList] = accInputInList;
+                } else {
+                    // If the types do not match, then no mapping
+                };
+            } else {    
+                thiz.inputsMap[myInputInList] = accInputInList;
+            };
         };
     };
     
@@ -1913,19 +1972,19 @@ Accessor.prototype.reify = function (accessor) {
 
         // Check the output name
         if (accOutputInList) {
-        	if (accOutput.type && myOutput.type) {
-        		if (accOutput.type === myOutput.type) {
-        			// FIXME: type checking should be augmented by sub-typing checking
-        			thiz.outputsMap[accOutputInList] = myOutputInList;
-        		} else {
-        			// If the types do not match, then no mapping
-        		    thiz.error('Output name for reifying accessor matches, but not the type: '
-        		            + accOutputInList);
-        		    outputsMatch = false;
-        		};
-        	} else {	
-        		thiz.outputsMap[accOutputInList] = myOutputInList;
-        	};
+            if (accOutput.type && myOutput.type) {
+                if (accOutput.type === myOutput.type) {
+                    // FIXME: type checking should be augmented by sub-typing checking
+                    thiz.outputsMap[accOutputInList] = myOutputInList;
+                } else {
+                    // If the types do not match, then no mapping
+                    thiz.error('Output name for reifying accessor matches, but not the type: '
+                            + accOutputInList);
+                    outputsMatch = false;
+                };
+            } else {    
+                thiz.outputsMap[accOutputInList] = myOutputInList;
+            };
         };
     };
 
@@ -1945,8 +2004,28 @@ Accessor.prototype.reify = function (accessor) {
     // Now that we have a new contained accessor, we need to recalculate
     // priorities.
     this.assignPriorities();
-    // Initialize the instance
-    accessorInstance.initialize();
+
+    // Set accessor parameters according to parameterMap (if provided)
+    if(parameterMap){
+        for(var param in parameterMap){
+            if(parameterMap.hasOwnProperty(param)){
+                accessorInstance.setParameter(param, parameterMap[param]);
+            }
+        }
+    }
+
+    // Set accessor default input values according to inputMap (if provided)
+    if(inputMap){
+        for(var defaultInput in inputMap){
+            if(inputMap.hasOwnProperty(defaultInput)){
+                accessorInstance.setDefault(defaultInput, inputMap[defaultInput]);
+            }
+        }
+    }
+
+    // Update: Initialize is now performed by mutableBase, to allow additional control
+    // over when intialization happens by a mutable.
+    //accessorInstance.initialize();
 
     // Update the mutable accessor state and history
     thiz.state = 'reified';
@@ -2373,11 +2452,14 @@ Accessor.prototype.startMonitoring = function(deeply) {
 
     // If needed, start monitoring all contained accessors.
     if (deeply) {
+        this.monitoringDeeply = true;
         if (this.containedAccessors && this.containedAccessors.length > 0) {
             for (var i = 0; i < this.containedAccessors.length; i++) {
                 this.containedAccessors[i].startMonitoring(deeply);
             }
         }
+    } else {
+        this.monitoringDeeply = false;
     }
 
     if (this.monitoring) {
@@ -2450,6 +2532,7 @@ Accessor.prototype.stopMonitoring = function() {
     if (this.monitoring) {
         this.monitor.stopMonitoringTime = this.monitor.currentMonitoringTime;
         this.monitoring = false;
+        this.monitoringDeeply = false;
 
         // Remove listeners
         this.removeListener('initializeStart', _recordEventStart.bind(thiz, 'initialize'));
@@ -2560,6 +2643,9 @@ var _recordEventStart = function(event) {
         break;
     case 'wrapup':
         this.monitor.wrapup.latestStart = Date.now();
+        // Wrapup monitoring is reported in wrapup,
+        // not after, so we set the count to 1 here.
+        this.monitor.wrapup.count = 1;
     }
 }
 
@@ -2686,6 +2772,17 @@ function getTopLevelAccessorsNotSupported() {
                    );
 }
 
+/** Return the name of this host.
+ *
+ *  Hosts are expected to override this function and return their own name.
+ *
+ *  @return In commonHost.js, throw error.
+ *   In other hosts, return the name of the host.
+ */ 
+function getHostName() {
+    throw new Error('getHostName is not supported by this swarmlet host.');
+};
+
 /** Instantiate an accessor given its fully qualified class name, a function to retrieve
  *  the code, and bindings that include at least a require function to retrieve modules.
  *  The returned object will have a property **accessorClass** with the value of the
@@ -2718,9 +2815,9 @@ function instantiateAccessor(
     return instance;
 }
 
-/** Evaluates if mutable is reifiable by the accessor given as parameters.
- *  Reification conditions are based on interface refinement theory. The conditions are: 
- *  ** the set of accessor inputs are included in the set of 'mutable accessor'
+/** Evaluates whether a mutable is reifiable by the accessor given as parameters.
+ *  It is reifiable if: 
+ *  ** the set of accessor inputs are included in the set of mutable accessor'
  *     inputs.
  *  ** and the set of outputs of mutable accessor are included in the set of
  *     outputs of accessor.
@@ -2731,14 +2828,12 @@ function instantiateAccessor(
  *  FIXME: augment type checking with subtyping.
  *  FIXME: augment the function to accept interface names, urls, ontologies...
  *
- *  @param mutable an instantiated accessor that can be a mutable
- *  @param accessor An instantiated Accessor object
- *  @return false if mutable is not reifyable by accessor, else return true.
+ *  @param mutable An instantiated Accessor that is mutable.
+ *  @param accessor An instantiated Accessor object.
+ *  @return false if the mutable is not reifiable by the accessor, otherwise true.
  */
 function isReifiableBy (mutable, accessor) {
-    // Note that we could just use this instead of this.root because of the
-    // prototype chain, but in a deep hierarchy, this will be more efficient.
-    var thiz = mutable.root; 
+    var mutableRoot = mutable.root; 
     var i;
 
 
@@ -2754,8 +2849,8 @@ function isReifiableBy (mutable, accessor) {
         accInputInList = accessor.inputList[i];
         accInput = accessor.inputs[accInputInList];
 
-        myInputInList = thiz.inputList[thiz.inputList.indexOf(accInputInList)];
-        myInput = thiz.inputs[myInputInList];
+        myInputInList = mutableRoot.inputList[mutableRoot.inputList.indexOf(accInputInList)];
+        myInput = mutableRoot.inputs[myInputInList];
 
         // Check the input name
         if (!myInputInList) {
@@ -2769,9 +2864,9 @@ function isReifiableBy (mutable, accessor) {
     }
 
     // Look for mapping the mutableAccesssor outputs to the accessor outputs
-    for (i = 0; i < thiz.outputList.length; i++) {
-        var myOutputInList = thiz.outputList[i];
-        var myOutput = thiz.outputs[myOutputInList];
+    for (i = 0; i < mutableRoot.outputList.length; i++) {
+        var myOutputInList = mutableRoot.outputList[i];
+        var myOutput = mutableRoot.outputs[myOutputInList];
 
         var accOutputInList = accessor.outputList[accessor.outputList.indexOf(myOutputInList)];
         var accOutput = accessor.outputs[accOutputInList];
@@ -3163,6 +3258,7 @@ exports.Accessor = Accessor;
 exports.allowTrustedAccessors = allowTrustedAccessors;
 exports.instantiateAccessor = instantiateAccessor;
 exports.isReifiableBy = isReifiableBy;
+exports.getHostName = getHostName;
 exports.getTopLevelAccessors = getTopLevelAccessors;
 exports.processCommandLineArguments = processCommandLineArguments;
 exports.stopAllAccessors = stopAllAccessors;

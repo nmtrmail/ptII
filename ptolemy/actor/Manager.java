@@ -1,6 +1,6 @@
 /* A Manager governs the execution of a model.
 
- Copyright (c) 1997-2017 The Regents of the University of California.
+ Copyright (c) 1997-2019 The Regents of the University of California.
  All rights reserved.
  Permission is hereby granted, without written agreement and without
  license or royalty fees, to use, copy, modify, and distribute this
@@ -1427,6 +1427,24 @@ public class Manager extends NamedObj implements Runnable {
         long totalMemory = runtime.totalMemory() / 1024;
         long freeMemory = runtime.freeMemory() / 1024;
         return timeAndMemory(startTime, totalMemory, freeMemory);
+    }
+
+    /** Return a string with the elapsed time since startTime, and
+     *  the amount of memory used.
+     *  This method takes a java.lang.Long object so that ptjacl
+     *  can properly pass a long number:
+     *  <pre>
+     *  set currentTime  [java::call -noconvert java.lang.System currentTimeMillis]
+     *  java::call ptolemy.actor.Manager timeAndMemoryLong $x
+     *  </pre>
+     *  @param startTime The start time in milliseconds.  For example,
+     *  the value returned by <code>(new Date()).getTime()</code>.
+     *  @return A string with the elapsed time since startTime, and
+     *  the amount of memory used.
+     */
+    public static String timeAndMemoryLong(Long startTime) {
+
+        return timeAndMemory(startTime.longValue());
     }
 
     /** Return a string with the elapsed time since startTime,

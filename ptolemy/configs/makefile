@@ -4,7 +4,7 @@
 #
 # @Version: $Id$
 #
-# @Copyright (c) 2000-2018 The Regents of the University of California.
+# @Copyright (c) 2000-2019 The Regents of the University of California.
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -40,7 +40,7 @@ DIRS =		\
 		doc \
 		dsp full fullViewer hyvisual jxta \
 		test \
-		pn ptdb ptiny ptinyKepler \
+		pn ptiny ptinyKepler \
 		ptinyViewer ptserver \
 		space viptos visualsense
 

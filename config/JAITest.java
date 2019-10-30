@@ -1,6 +1,6 @@
 /* Simple Java Test Program for Java Advanced Imaging
 
-Copyright (c) 2002-2011 The Regents of the University of California.
+Copyright (c) 2002-2019 The Regents of the University of California.
 All rights reserved.
 Permission is hereby granted, without written agreement and without
 license or royalty fees, to use, copy, modify, and distribute this
@@ -27,6 +27,9 @@ COPYRIGHTENDKEY
 */
 import javax.media.jai.*;
 
+// Java 9 removed com.sun.image.codec.jpeg.JPEGCodec.  See
+// https://wiki.eecs.berkeley.edu/ptexternal/Main/JAI
+import com.sun.image.codec.jpeg.JPEGCodec;
 
 /** Simple class used by configure to test whether the Java Advanced Imaging
     is present.

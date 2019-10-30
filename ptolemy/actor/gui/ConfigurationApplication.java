@@ -1,6 +1,6 @@
 /* An application that reads one or more files specified on the command line.
 
- Copyright (c) 1999-2018 The Regents of the University of California.
+ Copyright (c) 1999-2019 The Regents of the University of California.
  All rights reserved.
  Permission is hereby granted, without written agreement and without
  license or royalty fees, to use, copy, modify, and distribute this
@@ -232,8 +232,17 @@ public class ConfigurationApplication implements ExecutionListener {
 
         _initializeApplication();
 
-        StringUtilities.addPtolemyLibraryDirectoryToJavaLibraryPath();
-
+        try {
+            // The rxtx serial i/o library needs to be able
+            // to find its shared libraries.
+            StringUtilities.addPtolemyLibraryDirectoryToJavaLibraryPath();
+        } catch (Throwable throwable) {
+            // Ignore this for now.
+            // Java 12 no longer has ClassLoader.usr_paths.
+            //System.err.println("ConfigurationApplication(): Could not add the ptolemy "
+            //                   + "library directory to the Java library path: "
+            //                   + throwable);
+        }
         _basePath = basePath;
 
         // Create a parser to use.

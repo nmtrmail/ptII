@@ -1,6 +1,6 @@
 /* Execute a script in JavaScript using Nashorn.
 
-   Copyright (c) 2014-2018 The Regents of the University of California.
+   Copyright (c) 2014-2019 The Regents of the University of California.
    All rights reserved.
    Permission is hereby granted, without written agreement and without
    license or royalty fees, to use, copy, modify, and distribute this
@@ -77,6 +77,7 @@ import ptolemy.data.type.BaseType;
 import ptolemy.data.type.Type;
 import ptolemy.graph.Inequality;
 import ptolemy.kernel.CompositeEntity;
+import ptolemy.kernel.Port;
 import ptolemy.kernel.attributes.URIAttribute;
 import ptolemy.kernel.util.Attribute;
 import ptolemy.kernel.util.IllegalActionException;
@@ -758,8 +759,9 @@ public class JavaScript extends AbstractPlaceableActor
         return currentTime.getDoubleValue();
     }
 
-    /** Declare that any output that is marked as spontanous does does
-     *  not depend on the input in a firing.
+    /** Declare that any output that is marked as spontaneous does does
+     *  not depend on the input in a firing. Also, declare dependencies
+     *  based on prior calls to declareIndependence().
      *  @exception IllegalActionException If the causality interface
      *  cannot be computed.
      */
@@ -779,6 +781,28 @@ public class JavaScript extends AbstractPlaceableActor
                 }
             }
         }
+        if (_independentInputs != null) {
+            for (int i = 0; i < _independentInputs.size(); i++) {
+                Port input = getPort(_independentInputs.get(i));
+                Port output = getPort(_independentOutputs.get(i));
+                if (input instanceof IOPort && output instanceof IOPort) {
+                    _declareDelayDependency((IOPort)input, (IOPort)output, 0.0);
+                }
+            }
+        }
+    }
+
+    /** Declare that the specified output does not depend on the specified input.
+     *  @param outputName The name of the output.
+     *  @param inputName The name of hte input.
+     */
+    public void declareIndependence(String outputName, String inputName) {
+        if (_independentInputs == null) {
+            _independentInputs = new LinkedList<String>();
+            _independentOutputs = new LinkedList<String>();
+        }
+        _independentInputs.add(inputName);
+        _independentOutputs.add(outputName);
     }
 
     /** Specify a description to appear in the documentation for this actor.
@@ -946,7 +970,7 @@ public class JavaScript extends AbstractPlaceableActor
             try {
                 _engine.put("_topLevelCode", scriptValue);
                 _instance = ((Invocable) _engine).invokeFunction("evaluateCode",
-                        getName(), scriptValue);
+                        getName(), scriptValue, _accessorClass());
                 _exports = ((Map) _instance).get("exports");
             } catch (Throwable throwable) {
                 if (error.getWidth() > 0) {
@@ -1057,6 +1081,8 @@ public class JavaScript extends AbstractPlaceableActor
             synchronized (this) {
                 // Now, holding a lock on this actor, invoke the pending callbacks.
                 for (Runnable callbackFunction : callbacks) {
+                    // FIXME: If the following blocks, the director thread will lock
+                    // up and the model will become nonresponsive.
                     callbackFunction.run();
                 }
                 // Handle timeout requests that match the current time.
@@ -1373,6 +1399,27 @@ public class JavaScript extends AbstractPlaceableActor
         }
     }
 
+    /** Provide access to the top-level accessors in this model.
+     *  @return An array of instances of the JavaScript Accessor class.
+     */
+    public Object[] getTopLevelAccessors() throws Exception {
+        if (_workspace.getVersion() != _topLevelAccessorsVersion) {
+            _topLevelAccessorsVersion = _workspace.getVersion();
+            ArrayList result = new ArrayList();
+            NamedObj toplevel = toplevel();
+            if (toplevel instanceof CompositeEntity) {
+                List entityList = ((CompositeEntity)toplevel).allAtomicEntityList();
+                for (Object entity : entityList) {
+                    if (entity instanceof JavaScript) {
+                        result.add(new AccessorProxy((JavaScript)entity));
+                    }
+                }
+            }
+            _topLevelAccessors = result.toArray(new Object[result.size()]);
+        }
+        return _topLevelAccessors;
+    }
+
     /** Create a new JavaScript engine, load the default functions, and
      *  register the ports so that send() and get() can work.
      *  @exception IllegalActionException If a port name is either a
@@ -1660,6 +1707,8 @@ public class JavaScript extends AbstractPlaceableActor
     public void invokeCallback(final Runnable function)
             throws IllegalActionException {
         if (Thread.currentThread().equals(_directorThread)) {
+            // FIXME: If the following blocks, the director thread will lock
+            // up and the model will become nonresponsive.
             function.run();
         } else {
             _pendingCallbacks.offer(function);
@@ -2013,6 +2062,9 @@ public class JavaScript extends AbstractPlaceableActor
             _timeoutCount = 0;
 
             _createEngineAndEvaluateSetup();
+            // Since a new accessor object has been created, increment
+            // the workspace version.
+            _workspace.incrVersion();
         }
         _running = false;
     }
@@ -2156,6 +2208,14 @@ public class JavaScript extends AbstractPlaceableActor
     ///////////////////////////////////////////////////////////////////
     ////                         protected methods                 ////
 
+    /** Return the name of the accessor class. In this base class, it
+     *  returns "JavaScript".
+     *  @return The string "JavaScript".
+     */
+    protected String _accessorClass() {
+        return "JavaScript";
+    }
+
     /** Override the base class so that the name of any port added is shown.
      *  @exception IllegalActionException If the superclass throws it.
      *  @exception NameDuplicationException If the superclass throws it.
@@ -2211,23 +2271,25 @@ public class JavaScript extends AbstractPlaceableActor
      *  @param context The context.
      *  @param methodName The method name.
      *  @param args Arguments to pass to the function.
+     *  @return Whatever the function returns.
      *  @exception IllegalActionException If the method does not exist in either
      *   context, or if an error occurs invoking the method.
      */
-    protected void _invokeMethodInContext(Object context, String methodName,
+    protected Object _invokeMethodInContext(Object context, String methodName,
             Object... args) throws IllegalActionException {
         try {
-            ((Invocable) _engine).invokeMethod(context, methodName, args);
+            return ((Invocable) _engine).invokeMethod(context, methodName, args);
         } catch (NoSuchMethodException e) {
             // Attempt to invoke it in the top-level contenxt.
             try {
-                ((Invocable) _engine).invokeFunction(methodName, args);
+                return ((Invocable) _engine).invokeFunction(methodName, args);
             } catch (NoSuchMethodException e1) {
                 throw new IllegalActionException(this, e1,
                         "No function defined named " + methodName);
             } catch (ScriptException e1) {
                 if (error.getWidth() > 0) {
                     error.send(0, new StringToken(e1.getMessage()));
+                    return null;
                 } else {
                     throw new IllegalActionException(this, e1,
                             "Failure executing the " + methodName
@@ -2237,6 +2299,7 @@ public class JavaScript extends AbstractPlaceableActor
         } catch (ScriptException e) {
             if (error.getWidth() > 0) {
                 error.send(0, new StringToken(e.getMessage()));
+                return null;
             } else {
                 throw new IllegalActionException(this, e,
                         "Failure executing the " + methodName + " function: "
@@ -2245,6 +2308,7 @@ public class JavaScript extends AbstractPlaceableActor
         } catch (Throwable throwable) {
             if (error.getWidth() > 0) {
                 error.send(0, new StringToken(throwable.getMessage()));
+                return null;
             } else {
                 throw new IllegalActionException(this, throwable,
                         "Failure executing the " + methodName + " function: "
@@ -2427,7 +2491,7 @@ public class JavaScript extends AbstractPlaceableActor
         String scriptValue = script.getValueAsString();
         try {
             _instance = ((Invocable) _engine).invokeFunction("evaluateCode",
-                    getName(), scriptValue);
+                    getName(), scriptValue, _accessorClass());
             _exports = ((Map) _instance).get("exports");
         } catch (Throwable throwable) {
             throw new IllegalActionException(this, throwable,
@@ -2895,6 +2959,12 @@ public class JavaScript extends AbstractPlaceableActor
     /** The director thread. This is set in initialize() and unset in wrapup. */
     private Thread _directorThread;
 
+    /** Inputs that outputs do not depend on. */
+    private List<String> _independentInputs;
+
+    /** Outputs that do not depend on inputs. */
+    private List<String> _independentOutputs;
+
     /** True while the actor is firing, false otherwise. */
     private boolean _inFire;
 
@@ -2929,8 +2999,43 @@ public class JavaScript extends AbstractPlaceableActor
     /** Count to give a unique handle to pending timeouts. */
     private int _timeoutCount = 0;
 
+    /** Cached list of top-level accessors. */
+    private Object[] _topLevelAccessors;
+
+    /** Version of workspace for list of top-level accessors. */
+    private long _topLevelAccessorsVersion = -1;
+
     ///////////////////////////////////////////////////////////////////
     ////                        Inner Classes                      ////
+
+    /** Proxy for an accessor for monitoring purposes.
+     *  This exposes methods that reveal information about the accessor
+     *  but do not change its state, except for stopMonitoring().
+     */
+    public class AccessorProxy {
+        public AccessorProxy(JavaScript actor) {
+            _actor = actor;
+        }
+        public Object getAccessorClass() throws IllegalActionException {
+            return _actor._invokeMethodInContext(_actor._instance, "getAccessorClass");
+        }
+        public Object getMonitoring() throws IllegalActionException {
+            return _actor._invokeMethodInContext(_actor._instance, "getMonitoring");
+        }
+        public Object getName() throws IllegalActionException {
+            return _actor._invokeMethodInContext(_actor._instance, "getName");
+        }
+        public Object isInitialized() throws IllegalActionException {
+            return _actor._invokeMethodInContext(_actor._instance, "isInitialized");
+        }
+        public void startMonitoring(boolean deep) throws IllegalActionException {
+            _actor._invokeMethodInContext(_actor._instance, "startMonitoring", deep);
+        }
+        public void stopMonitoring() throws IllegalActionException {
+            _actor._invokeMethodInContext(_actor._instance, "stopMonitoring");
+        }
+        private JavaScript _actor;
+    }
 
     /** Proxy for a port or parameter.
      *
@@ -3030,7 +3135,7 @@ public class JavaScript extends AbstractPlaceableActor
             // get the lock because a Vertx thread might be trying to
             // send while the actor has already obtained the lock in
             // wrapup() and may be calling WebSocketHelper.close(). See
-            // https://chess.eecs.berkeley.edu/ptolemy/wiki/Ptolemy/Deadlock
+            // https://wiki.eecs.berkeley.edu/ptolemy/Ptolemy/Deadlock
             //
             // FIXME: The above NOTE appears to be wrong.
             // WebSocketHelper is holding a lock on _actor

@@ -2,7 +2,7 @@
 #
 # @Version: $Id$
 #
-# Copyright (c) 1995-2018 The Regents of the University of California.
+# Copyright (c) 1995-2019 The Regents of the University of California.
 # All rights reserved. 
 #
 # Permission is hereby granted, without written agreement and without
@@ -40,9 +40,7 @@ ME =		.
 #   if $PTII/mescal was found
 PTTHALES_DIR = thales
 DIRS = util com diva edu net org ptolemy \
-	ptdb \
 	$(PTLBNL_DIR) $(PTMESCAL_DIR) $(PTTHALES_DIR) \
-	ptserver \
 	contrib bin doc
 
 # Root of Ptolemy II directory

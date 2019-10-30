@@ -4,7 +4,7 @@
 #
 # @Version: $Id$
 #
-# @Copyright (c) 2007-2008 The Regents of the University of California.
+# @Copyright (c) 2007-2019 The Regents of the University of California.
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -94,7 +94,7 @@ test SetVariable-3.1 {changeFailed} {
                    [java::new Exception {Test exception for SetVariable.changeFailed()}]} errMsg
     } results
     list [string range $results 0 89] "\n" $errMsg
-} {{java.lang.Exception: Test exception for SetVariable.changeFailed()
-	at sun.reflect.NativeC} {
+} {{Failed to set variable.
+java.lang.Exception: Test exception for SetVariable.changeFailed()} {
 } {java.lang.RuntimeException: java.lang.Exception: Test exception for SetVariable.changeFailed()}}
 

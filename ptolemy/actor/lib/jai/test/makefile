@@ -4,7 +4,7 @@
 #
 # @Version: $Id$
 #
-# @Copyright (c) 2003-2005 The Regents of the University of California.
+# @Copyright (c) 2003-2019 The Regents of the University of California.
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -35,7 +35,7 @@ ME =		ptolemy/actor/lib/jai/test
 # Root of the Ptolemy II directory
 ROOT =		../../../../..
 
-CLASSPATH =	$(ROOT)
+CLASSPATH =	$(ROOT)$(CLASSPATHSEPARATOR)$(JAI_JARS)
 
 # Get configuration info
 CONFIG =	$(ROOT)/mk/ptII.mk

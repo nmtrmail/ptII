@@ -37,14 +37,27 @@ sudo apt-get install -y cmake pkg-config ninja-build zlib1g-dev libjpeg8-dev lib
 # sudo apt-get install -y libjasper-dev libpng12-dev libgstreamer0.10-dev libgstreamer-plugins-base0.10-dev
 
 if [ ! -d $INSTALL_FLAG ]; then
+    echo "$0: $INSTALL_FLAG does not exist or is not a directory."
+    # Because set -e was invoked, ls will return non-zero if the
+    # directory does not exist.  So we check that it exists first
+    if [ ! -d $INSTALL_PREFIX ]; then
+        echo "$0: $INSTALL_PREFIX does not exist or is not a directory."
+    else
+        ls -R $INSTALL_PREFIX
+    fi
     if [ ! -d $OPENCV_BUILD ]; then
+        echo "$0: $OPENCV_BUILD  does not exist or is not a directory, so we download files and create the directory."
 	OPENCV_TAR=/tmp/opencv-${OPENCV_VERSION}.tar.gz
 	if [ ! -f $OPENCV_TAR ]; then
-	    wget -O $OPENCV_TAR https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.tar.gz
+            echo "$0: Downloading $OPENCV_TAR"
+	    wget --quiet -O $OPENCV_TAR https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.tar.gz
+	    echo "$0: Done downloading $OPENCV_TAR"
 	fi
 	OPENCV_CONTRIB_TAR=/tmp/opencv_contrib-${OPENCV_VERSION}.tar.gz
 	if [ ! -f $OPENCV_CONTRIB_TAR ]; then
-	    wget -O /tmp/opencv_contrib-${OPENCV_VERSION}.tar.gz https://github.com/opencv/opencv_contrib/archive/${OPENCV_VERSION}.tar.gz
+            echo "$0: Downloading $OPENCV_CONTRIB_TAR"
+	    wget --quiet -O /tmp/opencv_contrib-${OPENCV_VERSION}.tar.gz https://github.com/opencv/opencv_contrib/archive/${OPENCV_VERSION}.tar.gz
+	    echo "$0: Done downloading $OPENCV_CONTRIB_TAR"
 	fi
 
 	if [ ! -d $SRC ]; then

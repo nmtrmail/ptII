@@ -1,6 +1,6 @@
 /* Handle exceptions thrown in tests.
 
- Copyright (c) 2006-2014 The Regents of the University of California.
+ Copyright (c) 2006-2019 The Regents of the University of California.
  All rights reserved.
  Permission is hereby granted, without written agreement and without
  license or royalty fees, to use, copy, modify, and distribute this
@@ -166,8 +166,13 @@ public class TestExceptionAttribute extends AbstractInitializableAttribute
             int prefixLength = ((IntToken) matchPrefixOfLength.getToken())
                     .intValue();
             if (prefixLength <= 0) {
-                if (!exception.getMessage()
-                        .equals(correctExceptionMessage.stringValue())) {
+                String message = exception.getMessage();
+                if (message == null) {
+                    throw new IllegalActionException(this, exception,
+                            "Expected:\n"
+                                    + correctExceptionMessage.stringValue()
+                                    + "\nBut got null error message:\n" + exception);
+                } else if (!message.equals(correctExceptionMessage.stringValue())) {
                     throw new IllegalActionException(this, exception,
                             "Expected:\n"
                                     + correctExceptionMessage.stringValue()

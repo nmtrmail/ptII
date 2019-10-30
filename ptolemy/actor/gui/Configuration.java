@@ -1,6 +1,6 @@
 /* Base class for Ptolemy configurations.
 
- Copyright (c) 2000-2018 The Regents of the University of California.
+ Copyright (c) 2000-2019 The Regents of the University of California.
  All rights reserved.
  Permission is hereby granted, without written agreement and without
  license or royalty fees, to use, copy, modify, and distribute this
@@ -421,7 +421,7 @@ public class Configuration extends CompositeEntity
         long startTime = (new java.util.Date()).getTime();
         while (entities.hasNext()) {
             Object entity = entities.next();
-            // System.out.println("Configuration.check: entity: " + entity + " " + ptolemy.actor.Manager.timeAndMemory(startTime));
+            System.out.println("Configuration.check: entity: " + entity + " " + ptolemy.actor.Manager.timeAndMemory(startTime));
             System.out.print("#");
             if (entity instanceof TypedAtomicActor) {
                 // Check atomic actors for clone problems

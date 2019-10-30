@@ -1,6 +1,6 @@
 /* An atomic actor that executes a model specified by a file or URL.
 
- Copyright (c) 2003-2015 The Regents of the University of California.
+ Copyright (c) 2003-2019 The Regents of the University of California.
  All rights reserved.
  Permission is hereby granted, without written agreement and without
  license or royalty fees, to use, copy, modify, and distribute this
@@ -661,6 +661,15 @@ public class ModelReference extends TypedAtomicActor
         }
     }
 
+    /** Reset the state.
+     *  @exception IllegalActionException If the parent class throws it.
+     */
+    @Override
+    public void initialize() throws IllegalActionException {
+        super.initialize();
+        _throwable = null;
+    }
+
     /** Report in debugging statements that the manager state has changed.
      *  This method is called if the referenced model
      *  is executed in another thread and the manager changes state.
@@ -705,10 +714,10 @@ public class ModelReference extends TypedAtomicActor
             }
 
             _manager.waitForCompletion();
-        }
 
-        // Test auto/ModelReference2.xml seems to end up here with
-        _manager = null;
+            // Test auto/ModelReference2.xml seems to end up here with
+            _manager = null;
+        }
 
         return super.postfire();
     }
@@ -761,6 +770,16 @@ public class ModelReference extends TypedAtomicActor
     @Override
     public void wrapup() throws IllegalActionException {
         super.wrapup();
+        if (_manager != null) {
+            _manager.finish();
+
+            // Wait for the finish.
+            if (_debugging) {
+                _debug("** Waiting for completion of execution.");
+            }
+
+            _manager.waitForCompletion();
+        }
         _alreadyReadInputs = false;
 
         if (_throwable != null) {

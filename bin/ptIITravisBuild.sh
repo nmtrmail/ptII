@@ -41,6 +41,8 @@
 #   RUN_TESTS=true PT_TRAVIS_TEST_CORE3_XML=true $PTII/bin/ptIITravisBuild.sh
 #   RUN_TESTS=true PT_TRAVIS_TEST_CORE4_XML=true $PTII/bin/ptIITravisBuild.sh
 #   RUN_TESTS=true PT_TRAVIS_TEST_CORE5_XML=true $PTII/bin/ptIITravisBuild.sh
+#   RUN_TESTS=true PT_TRAVIS_TEST_CORE6_XML=true $PTII/bin/ptIITravisBuild.sh
+#   RUN_TESTS=true PT_TRAVIS_TEST_CORE7_XML=true $PTII/bin/ptIITravisBuild.sh
 #   RUN_TESTS=true PT_TRAVIS_TEST_INSTALLERS=true $PTII/bin/ptIITravisBuild.sh
 #   RUN_TESTS=true PT_TRAVIS_TEST_REPORT_SHORT=true $PTII/bin/ptIITravisBuild.sh
 #   RUN_TESTS=true PT_TRAVIS_JUNITREPORT=true $PTII/bin/ptIITravisBuild.sh
@@ -72,7 +74,12 @@ fi
 # out, then bump this up, but look out for a return code of 137 from
 # ant
 # core3 timed out 150 seconds, so increase the remaining time after the build to 180 seconds.
-timeAfterBuild=180
+# core2 timed out 180 seconds, so increase the remaining time after the build to 240 seconds.
+timeAfterBuild=240
+
+# buildWillProbablyTimeOut is set to yes if the build starts late
+buildWillProbablyTimeOut=no
+
 if [ ! -z "$SECONDS" -a "$SECONDS" -gt 100 ]; then
     echo "$0: SECONDS environment variable is $SECONDS."
 
@@ -81,6 +88,18 @@ else
     if [ $# -eq 1 ]; then
         echo "$0: Using $1 as current seconds since the start of the job."
         SECONDS=$1
+
+        # Check to see if the current seconds is so large that the build will likely
+        # time out.  This can occur if OpenCV was rebuilt, which takes lots of time
+        maximumStartTimeSeconds=1200
+        if [ "$SECONDS" -gt "$maximumStartTimeSeconds" ]; then
+            echo "$0: $SECONDS is greater than $maximumStartTimeSeconds."
+            echo "Perhaps OpenCV was rebuilt?  There is probably not enough time to run the"
+            echo "rest of the tests."
+            echo "See https://wiki.eecs.berkeley.edu/ptexternal/Main/Travis#Caching"
+            buildWillProbablyTimeOut=yes
+        fi
+
         maxTimeout=`expr 3000 - $SECONDS - $timeAfterBuild`
     else
         echo "$0: SECONDS environment variable not present or less than 100 and no argument passed."
@@ -112,7 +131,7 @@ case `uname -s` in
         status=$?
         if [ $status -eq 0 ]; then
             echo "timeout supports --kill-after"
-            # Use a -3 signal to get a stack trace, then 20 seconds later, use kill -9.
+            # Use a -3 signal to get a stack trace, then 20 seconds later, use kill, which will return 124.
             TIMEOUTCOMMAND='timeout -s 3 --kill-after=20'
         else
             echo "timeout does not support --kill-after, usage was: '$usage', use kill -9."
@@ -190,8 +209,16 @@ exitIfNotCron () {
         if [ "$RUN_TESTS" = "true" ]; then
             echo "$0: RUN_TESTS was set to true, so the tests are being run even though TRAVIS_EVENT_TYPE is \"$TRAVIS_EVENT_TYPE\", which is != cron."
         else
-            echo "$0: TRAVIS_EVENT_TYPE is \"$TRAVIS_EVENT_TYPE\", so this target is *not* being run."
-            echo "$0: If you want to run the tests anyway, then set RUN_TESTS to true in https://travis-ci.org/icyphy/ptII/settings"
+            echo "$0: ##########################################"
+            echo "$0: We only run the tests when Travis is invoked via a cron job."
+            echo "$0: TRAVIS_EVENT_TYPE is \"$TRAVIS_EVENT_TYPE\", which is not \"cron\","
+            echo "$0: so the tests for this target are *not* being run."
+            echo "$0: This means that the JUnit output will reflect the output of the last cron job."
+            echo "$0: The JUnit output will *not* reflect changes made since that cron job."
+            echo "$0: This means that we just run a smoke build most of the time, yet once"
+            echo "$0: a day we run a cron job"
+            echo "$0: If you want to run the tests anyway, then set RUN_TESTS to true"
+            echo "$0: in https://travis-ci.org/icyphy/ptII/settings"
             echo "$0: Exiting"
             exit 0
         fi
@@ -204,6 +231,12 @@ runTarget () {
 
     # Exit if we are not running a Travis cron job and RUN_TESTS is not set to true.
     exitIfNotCron
+
+    if [ "$buildWillProbablyTimeOut" = "yes" ]; then
+        echo "$0: The build started late, which indicates that OpenCV probably was built"
+        echo "The build will probably time out."
+        echo "See https://wiki.eecs.berkeley.edu/ptexternal/Main/Travis#Caching"
+    fi
 
     # Download the codeDoc*.jar files so that the docManager.tcl test will pass.
     jars="codeDoc.jar codeDocBcvtb.jar codeDocCapeCode.jar codeDocHyVisual.jar codeDocViptos.jar codeDocVisualSense.jar"
@@ -219,7 +252,7 @@ runTarget () {
             echo "######################################################"
             echo "$0: WARNING! `date`: wget $jar failed with a non-zero status of $status"
             echo "Below are the last $lastlines lines of the log file:"
-            echo tail -$lastlines $log
+            echo tail -$lastLines $log
         fi
         ls -l $PTII/doc/$jar
         (cd $PTII; jar -xf $PTII/doc/$jar)
@@ -235,24 +268,60 @@ runTarget () {
     timeout=$maxTimeout
     echo "$0: Output will appear in $log with timeout $timeout"
     
-    # Run the command and log the output.
-    $TIMEOUTCOMMAND $timeout ant build $target 2>&1 | egrep -v "$SECRET_REGEX" > $log
+    if [ "$buildWillProbablyTimeOut" = "yes" ]; then
+        echo "###################"
+        echo "###################"
+        echo "###################"
+        echo "###################"
+        echo "The build started late, which indicates that OpenCV probably was built"
+        echo "The build will probably time out."
+        echo "Rather than running tests that will timeout, we will run one test that"
+        echo "will fail and hopefully the cache will be updated this time."
+        echo "See https://wiki.eecs.berkeley.edu/ptexternal/Main/Travis#Caching"
+        echo "###################"
+        echo "###################"
+        echo "###################"
+        echo "###################"
+        echo "########## NOT RUNNING $target ###########"
+        echo "Running test.travis.timeout.fail.xml instead"
+        $TIMEOUTCOMMAND $timeout ant build test.travis.timeout.fail.xml 2>&1 | egrep -v "$SECRET_REGEX" > $log
+    else
+        # Run the command and log the output.
+        $TIMEOUTCOMMAND $timeout ant build $target 2>&1 | egrep -v "$SECRET_REGEX" > $log
+    fi
 
     # Get the return value of the ant command and exit if it is non-zero.
     # See https://unix.stackexchange.com/questions/14270/get-exit-status-of-process-thats-piped-to-another
     status=${PIPESTATUS[0]}
     if [ $status -ne 0 ]; then
-        echo "$0: `date`: At $SECONDS, ant build $target returned $status, which is non-zero. `date`"
-        tail -$lastLines $log
+        echo "$0: WARNING: `date`: At $SECONDS, ant build $target returned $status, which is non-zero."
         if [ $status = 137 ]; then
             echo "######################################################"
             echo "$0: WARNING! `date`: Ant probably times out because status = $status, which is 128 + 9. Consider updating timeAfterBuild, which is currently $timeAfterBuild seconds."
             echo "See https://github.com/travis-ci/travis-ci/issues/4192"
+
+            if [ "$buildWillProbablyTimeOut" = "yes" ]; then
+                echo "The build started late, which indicates that OpenCV probably was built"
+                echo "The build will probably time out."
+                echo "The fix is to edit $0, look in the runTarget() shell function"
+                echo "and prevent ant from running temporarily"g
+                echo "See https://wiki.eecs.berkeley.edu/ptexternal/Main/Travis#Caching"
+            fi
+
             echo "######################################################"
         else
-            echo "$0: exiting with a value of $status"
-            exit $status
+            if [ $status = 124 ]; then
+                echo "######################################################"
+                echo "$0: WARNING! `date`: Ant probably times out because status = $status, which https://www.gnu.org/software/coreutils/manual/html_node/timeout-invocation.html says that the command timed out.  This proba
+bly occurred because we are using the Ubuntu timeout command, which sends a kill signal after 20 seconds and returns 124.  See http://manpages.ubuntu.com/manpages/trusty/man1/timeout.1.html.  A timeout can happen if the a cache, such as the OpenCV cache, failed to download and rebuilding the cache caused the ptII ant job to be killed by the timeout command.  Usually the cache will be rebuilt and the next run of the Travis job will succeed."
+                echo "See also https://github.com/travis-ci/travis-ci/issues/4192"
+                echo "######################################################"
+            fi
         fi
+        echo "$0: Start of last $lastLines lines of $log"
+        tail -$lastLines $log
+        echo "$0: Running a test that always fails so that the timeout is recorded."
+        ant build test.travis.timeout.fail.xml 2>&1 | egrep -v "$SECRET_REGEX" >> $log
     else
         echo "$0: `date`: ant build $target returned $status"
         echo "$0: Start of last $lastLines lines of $log"
@@ -267,6 +336,16 @@ runTarget () {
     ant clean
 
     updateGhPages $PTII/reports/junit reports/
+
+    # We used to exit here, but now that we report a test error for non-zero status, we no longer exit.
+    # If we exit here, then we won't process the test error.
+    # if [ $status -ne 0 ]; then
+    #     echo "$0: `date`: 'ant build $target' returned $status, which is non-zero."
+    #     echo "Exit delayed so that the log can be added to the repository."
+    #     echo "Now exiting with a value of $status"
+    #     exit $status
+    # fi
+
 }
 
 # Copy the file or directory named by
@@ -450,7 +529,8 @@ if [ ! -z "$PT_TRAVIS_DOCS" ]; then
     # jar files that are slightly out of date.
 
     # Echo status messages so that Travis knows we are alive.
-    # If you need to get status about available memory, insert "free -m" inside the loop.
+    # If you need to get status about available memory, insert "free -m" inside the loop while building docs.
+    # See $PTII/.travis.yml to print messages for other builds
     while sleep 60; do echo "=====[ $SECONDS seconds still running ]====="; done &
 
     echo "Running ant javadoc jsdoc: maxTimeout: $maxTimeout, SECONDS: $SECONDS, `date`"
@@ -534,6 +614,16 @@ fi
 # Run the fifth batch of core tests.
 if [ ! -z "$PT_TRAVIS_TEST_CORE5_XML" ]; then
     runTarget test.core5.xml
+fi
+
+# Run the sixth batch of core tests.
+if [ ! -z "$PT_TRAVIS_TEST_CORE6_XML" ]; then
+    runTarget test.core6.xml
+fi
+
+# Run the seventh batch of core tests.
+if [ ! -z "$PT_TRAVIS_TEST_CORE7_XML" ]; then
+    runTarget test.core7.xml
 fi
 
 # Run the first batch of export demo tests.

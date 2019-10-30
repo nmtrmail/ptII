@@ -2,9 +2,7 @@
 #
 # @Author: Christopher Brooks
 #
-# @Version: $Id$
-#
-# @Copyright (c) 2006 The Regents of the University of California.
+# @Copyright (c) 2006-2019 The Regents of the University of California.
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -66,4 +64,4 @@ test ZZZConfiguration-100.0 {call setContainer, which calls _remoteEntity} {
     java::new ptolemy.actor.gui.ModelDirectory $configuration [java::field ptolemy.actor.gui.Configuration _DIRECTORY_NAME]
 
     list $errMsg	
-} {{java.lang.RuntimeException: Normally, we would exit here because Manager.exitAfterWrapup() was called.  However, because the ptolemy.ptII.exitAfterWrapup property is set, we throw this exception instead.}}
+} {{java.lang.RuntimeException: StringUtilities.exit() was called. Normally, we would exit here because Manager.exitAfterWrapup() was called.  However, because the ptolemy.ptII.exitAfterWrapup property is set, we throw this exception instead.}}

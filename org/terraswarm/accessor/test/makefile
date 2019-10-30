@@ -4,7 +4,7 @@
 #
 # @Version: : makefile 70524 2014-11-10 23:34:39Z eal $
 #
-# @Copyright (c) 2015-2018 The Regents of the University of California.
+# @Copyright (c) 2015-2019 The Regents of the University of California.
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -38,7 +38,7 @@ ROOT =		../../../..
 # AccessorOne.java depends on JavaScript.java, which uses these
 # libraries.  If we run 'make fast', and JavaScript.class does not
 # exist, then we will need these jars in the classpath.
-CLASSPATH =	$(ROOT)$(CLASSPATHSEPARATOR)$(PTOAUTHCLIENT_JAR)$(CLASSPATHSEPARATOR)$(PTOAUTHCOMMON_JAR)$(CLASSPATHSEPARATOR)$(PTSOCKETIO_JAR)$(CLASSPATHSEPARATOR)$(PTVERTX_JARS)$(CLASSPATHSEPARATOR)$(PTANGO_JARS)$(CLASSPATHSEPARATOR)$(SAXON_JAR)
+CLASSPATH =	$(ROOT)$(CLASSPATHSEPARATOR)$(PTOAUTHCLIENT_JAR)$(CLASSPATHSEPARATOR)$(PTOAUTHCOMMON_JAR)$(CLASSPATHSEPARATOR)$(PTSOCKETIO_JAR)$(CLASSPATHSEPARATOR)$(PTVERTX_JARS)$(CLASSPATHSEPARATOR)$(CLASSPATHSEPARATOR)$(SAXON_JAR)
 
 # Get configuration info
 CONFIG =	$(ROOT)/mk/ptII.mk

@@ -1,6 +1,6 @@
 /* An aggregation of actors.
 
- Copyright (c) 1997-2016 The Regents of the University of California.
+ Copyright (c) 1997-2019 The Regents of the University of California.
  All rights reserved.
  Permission is hereby granted, without written agreement and without
  license or royalty fees, to use, copy, modify, and distribute this
@@ -2131,7 +2131,7 @@ public class CompositeActor extends CompositeEntity
         // memory here.  So, our solution is to modify Manager so that
         // _container is a WeakReference.
 
-        // See https://chess.eecs.berkeley.edu/ptexternal/wiki/Main/MemoryLeaks#containerInCompositeActor
+        // See https://wiki.eecs.berkeley.edu/ptexternal/Main/Main/MemoryLeaks#containerInCompositeActor
         super.setContainer(container);
 
         Director director = getDirector();
@@ -2693,10 +2693,18 @@ public class CompositeActor extends CompositeEntity
         try {
             _workspace.getReadAccess();
 
+            // Collect exceptions during wrapup.
+            LinkedList<Throwable> throwables = new LinkedList<Throwable>();
+
             // First invoke initializable methods.
             if (_initializables != null) {
                 for (Initializable initializable : _initializables) {
-                    initializable.wrapup();
+                    // Catch any exceptions so that additional wrapup methods are invoked.
+                    try {
+                        initializable.wrapup();
+                    } catch (Throwable throwable) {
+                        throwables.add(throwable);
+                    }
                 }
             }
 
@@ -2704,13 +2712,23 @@ public class CompositeActor extends CompositeEntity
             if (_piggybacks != null) {
                 // Invoke the wrapup() method of each piggyback.
                 for (Executable piggyback : _piggybacks) {
-                    piggyback.wrapup();
+                    // Catch any exceptions so that additional wrapup methods are invoked.
+                    try {
+                        piggyback.wrapup();
+                    } catch (Throwable throwable) {
+                        throwables.add(throwable);
+                    }
                 }
             }
             if (_derivedPiggybacks != null) {
                 // Invoke the wrapup() method of each piggyback.
                 for (Executable piggyback : _derivedPiggybacks) {
-                    piggyback.wrapup();
+                    // Catch any exceptions so that additional wrapup methods are invoked.
+                    try {
+                        piggyback.wrapup();
+                    } catch (Throwable throwable) {
+                        throwables.add(throwable);
+                    }
                 }
             }
 
@@ -2732,7 +2750,30 @@ public class CompositeActor extends CompositeEntity
             Director director = getDirector();
 
             if (director != null) {
-                director.wrapup();
+                // Catch any exceptions so that additional wrapup methods are invoked.
+                try {
+                    director.wrapup();
+                } catch (Throwable throwable) {
+                    throwables.add(throwable);
+                }
+            }
+            if (throwables.size() == 1) {
+                Throwable exception = throwables.get(0);
+                if (exception instanceof IllegalActionException) {
+                    throw (IllegalActionException)exception;
+                } else {
+                    throw new IllegalActionException(this, exception,
+                            "Exception thrown during wrapup.");
+                }
+            } else if (throwables.size() > 1) {
+                StringBuffer message = new StringBuffer();
+                for (Throwable throwable : throwables) {
+                    message.append(throwable.getMessage());
+                    message.append("\n======\n");
+                }
+                throw new IllegalActionException(this, throwables.get(0),
+                        "Multiple exceptions thrown during wrapup:\n"
+                        + message.toString());
             }
         } finally {
             _workspace.doneReading();

@@ -1,6 +1,6 @@
 // Below is the copyright agreement for the Ptolemy II system.
 //
-// Copyright (c) 2014-2016 The Regents of the University of California.
+// Copyright (c) 2014-2019 The Regents of the University of California.
 // All rights reserved.
 //
 // Permission is hereby granted, without written agreement and without
@@ -172,9 +172,11 @@
      *  'foo.js', './foo/bar.js' and '../foo.js' should all work.
      *  @param the parent directory, which is of type java.io.File.
      *  @param modulePaths An array of fully qualified directories to search
+     *  @param convertHyphenToCamel A boolean variable signifying whether
+     *   to convert hyphenated module names to camelcase.
      *  @return the file that corresponds with the module.
      */
-    var resolveModuleToFile = function (moduleName, parentDir, modulePaths) {
+    var resolveModuleToFile = function (moduleName, parentDir, modulePaths, convertHyphenToCamel) {
         // print('require.js: moduleName: ' + moduleName + " parentDir: " + parentDir);
 
         // --- Modified from original by cxh@eecs.berkeley.edu to search in the classpath.
@@ -190,7 +192,7 @@
 
             // Convert names like http-client to httpClient because Java does
             // not support package names with hyphens.
-            if (moduleName.indexOf('-') != -1) {
+            if (convertHyphenToCamel && moduleName.indexOf('-') != -1) {
                 var newModuleName = "";
                 var lastSlashIndex = moduleName.length;
                 // Don't replace hypens in filenames.
@@ -279,7 +281,7 @@
                         // because we end up not keeping track of the parentDir because we are
                         // copying files from the jar file to a temporary location.
                         moduleName = moduleName.substr(startIndex);
-                        return resolveModuleToFile(moduleName, parentDir, modulePaths);
+                        return resolveModuleToFile(moduleName, parentDir, modulePaths, convertHyphenToCamel);
                     }
                 }
             }
@@ -356,7 +358,13 @@
             tail = '})',
             line = null;
 
-        file = resolveModuleToFile(path, parentFile, modulePaths);
+        //--- Modified from original by matt.weber@berkeley.edu:
+        //First try loading module with hyphens in the name. If that fails, convert
+        //hyphens to camelcase and try again.
+        file = resolveModuleToFile(path, parentFile, modulePaths, false);
+        if(!file){
+            file = resolveModuleToFile(path, parentFile, modulePaths, true);
+        }
         if (!file) {
             // Use parentFile.absolutePath instead of parentFile.canonicalFile
             // because parentFile.canonicalFile will fail under certain circumstances.
@@ -426,9 +434,26 @@
             if (!exceptionMessage) {
                 exceptionMessage = e.toString();
             }
+            // FIXME: Temporarily include the stack so that we can debug
+            // an ExceptionInInitializerError with audio under Travis. (cxh 7/19)
+            var stack = e.stack;
+            if (typeof stack === 'undefined') {
+                try {
+                    // This code is CapeCode/Nashorn Host-specific because it uses Java.
+                    var StringWriter = java.io.StringWriter,
+                        PrintWriter = java.io.PrintWriter;
+                    var stringWriter = new StringWriter();
+                    var printWriter = new PrintWriter(stringWriter);
+                    e.printStackTrace(printWriter);
+                    stack = "\n" + stringWriter.toString();
+                } catch (exception2) {
+                    stack = 'localFunctions.js: hostStackTrace(): Internal error? The stack of the JavaScript exception ' + e +
+                        'was undefined and the getting the stack trace as a Java exception failed with: ' + exception2;
+                }
+            }
             throw new Error("Error executing module " + path +
                 " line #" + e.lineNumber +
-                " : " + exceptionMessage + "\nIn file: " + canonizedFilename);
+                " : " + exceptionMessage + "\nIn file: " + canonizedFilename + "\n" + stack);
         }
         if (hooks) {
             hooks.loaded(canonizedFilename);

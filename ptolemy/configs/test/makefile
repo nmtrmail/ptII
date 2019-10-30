@@ -4,7 +4,7 @@
 #
 # @Version: $Id$
 #
-# @Copyright (c) 1997-2018 The Regents of the University of California.
+# @Copyright (c) 1997-2019 The Regents of the University of California.
 # All rights reserved.
 #
 # Permission is hereby granted, without written agreement and without
@@ -48,7 +48,6 @@ include $(CONFIG)
 # Tcl sources that are part of the testing infrastructure
 TCL_SRCS = \
 	cloneTest.tcl \
-	configTest.tcl \
 	configurationTools.tcl \
 	testDefs.tcl
 
@@ -59,7 +58,6 @@ JSRCS = \
 JSIMPLE_TESTS = \
 	allConfigs.tcl \
 	allDemos.tcl \
-	checkFullConstraints.tcl \
 	missingDemos.tcl \
 	validDemos.tcl
 
@@ -75,7 +73,7 @@ EXTRA_SRCS =	$(TCL_SRCS) $(JSRCS) $(MODELS_TXT) $(JSIMPLE_TESTS) #$(JGRAPHICAL_T
 
 # Sources that may or may not be present, but if they are present, we don't
 # want make checkjunk to barf on them.
-MISC_FILES =	alljtests.tcl junit missingDemos
+MISC_FILES =	alljtests.tcl junit missingDemos constraints
 
 # make checkjunk will not report OPTIONAL_FILES as trash
 # make distclean removes OPTIONAL_FILES
@@ -89,6 +87,7 @@ JCLASS =	$(JSRCS:%.java=%.class)
 # to run 'make tests' to run the tests.
 
 tests:: $(EXTRA_SRCS) jclass test_java test_jsimple
+	(cd constraints/test; $(MAKE)
 
 test_java: jclass
 
